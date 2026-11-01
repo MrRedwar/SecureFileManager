@@ -1,0 +1,11 @@
+﻿TestDatabase
+------------
+SecureFileManagerTests_f24acc1b2016437ea5d6cf8df557ecc7
+TableName Rows
+--------- ----
+Users 0
+Files 0
+Operations 0
+encrypt_option auth_scheme
+-------------- -----------
+TRUE NTLM

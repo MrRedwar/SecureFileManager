@@ -4,6 +4,7 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using SecureFileManager.Wpf.ViewModels;
 using SecureFileManager.Wpf.Views;
+using SecureFileManager.Data.DependencyInjection;
 
 namespace SecureFileManager.Wpf;
 
@@ -17,14 +18,25 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        _services = new ServiceCollection()
-            .AddSingleton<MainWindowViewModel>()
-            .AddSingleton<MainWindow>()
-            .BuildServiceProvider(new ServiceProviderOptions
-            {
-                ValidateOnBuild = true,
-                ValidateScopes = true
-            });
+        try
+        {
+            _services = new ServiceCollection()
+                .AddSecureFileManagerData()
+                .AddSingleton<MainWindowViewModel>()
+                .AddSingleton<MainWindow>()
+                .BuildServiceProvider(new ServiceProviderOptions
+                {
+                    ValidateOnBuild = true,
+                    ValidateScopes = true
+                });
+        }
+        catch (InvalidOperationException)
+        {
+            MessageBox.Show("Не удалось настроить приложение. Проверьте локальную конфигурацию базы данных и окружение.",
+                "Ошибка конфигурации", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(1);
+            return;
+        }
         MainWindow = _services.GetRequiredService<MainWindow>();
         MainWindow.Show();
     }

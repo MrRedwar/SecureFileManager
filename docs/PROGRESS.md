@@ -185,3 +185,155 @@ SEC-01–09 бизнес-модулям ещё не применимы: ни ф�
 PRE-03 остаётся формальным риском; пользователь разрешил реализацию, согласование
 с преподавателем не заявляется. Изменения пользователя в Git сохранены, commit не создан.
 Этапы 02–10 не реализовывались. Следующий шаг — 02 только после нового разрешения пользователя.
+
+## 2026-11-01 — Этап 02: модели, база и Persistence
+
+Перед изменениями перечитаны AGENTS.md, ТЗ, TASKS, DECISIONS и PROGRESS; изучены
+существующие проекты/ссылки/конфигурация/тесты. Git был чистым, HEAD d32bc5c.
+SDK по-прежнему 9.0.200, SQL Express 15.0.2000.5, Windows Authentication, TLS TRUE.
+Схема/таблицы предыдущих баз не изменялись; регистрация/вход/новый UI не реализованы.
+
+### Реализация 02.01–02.06
+
+- Core: User, FileRecord, Operation; FileKind/OperationType/OperationResult;
+  IUserRepository/IFileRepository/IOperationRepository, RepositoryResult/RepositoryStatus.
+- Data: AppDbContext с mapping, FK NO ACTION, SQL CHECK, уникальными индексами,
+  UTC-конвертацией, глобальным soft-delete фильтром, rowversion Files и защитой аудита
+  от update/delete через SaveChanges; отдельные репозитории и safe error mapping.
+- Конфигурация SQL и design-time factory находятся в Data; AddSecureFileManagerData
+  регистрируется только в composition root Wpf, Views не выполняют SQL/IO.
+- Локальный dotnet-ef и Design package 9.0.22; EF/provider/Relational той же версии.
+  Назначение, конфигурация и миграции описаны в DEVELOPMENT/PERSISTENCE/DECISIONS.
+- Отслеживаемый локальный JSON удалён; подключение перенесено в игнорируемый
+  appsettings.Development.json. Пароля в нём нет. Encrypt=True обязательно;
+  доверие сертификату разрешено только для явного Development и локального SQLEXPRESS.
+  Production использует проверку сертификата; локальный файл не входит в MSBuild items.
+
+### Подключение и новая база
+
+До создания дважды выполнена проверка DB_ID/sys.databases: SecureFileManagerDB
+отсутствовала. Затем выполнены команды (вне песочницы, Windows credentials):
+
+```powershell
+sqlcmd -S '.\SQLEXPRESS' -d master -E -N -C -b -W -Q "SELECT name,state_desc FROM sys.databases WHERE name=N'SecureFileManagerDB'; SELECT encrypt_option,auth_scheme FROM sys.dm_exec_connections WHERE session_id=@@SPID;"
+dotnet new tool-manifest
+dotnet tool install dotnet-ef --version 9.0.22
+dotnet ef migrations add InitialCreate --project src/SecureFileManager.Data --startup-project src/SecureFileManager.Data --output-dir Migrations --no-build
+$env:SFM_ENVIRONMENT = 'Development'
+$env:SFM_CONFIG_DIRECTORY = 'D:\SecureFileManager\src\SecureFileManager.Wpf'
+dotnet ef migrations script --project src/SecureFileManager.Data --startup-project src/SecureFileManager.Data --output docs/sql/initial-create.sql
+dotnet ef database update --project src/SecureFileManager.Data --startup-project src/SecureFileManager.Data --no-build
+```
+
+Проверен код Up перед применением: только создание новой схемы, PK/FK/CHECK/индексов.
+Применена 20261101094955_InitialCreate. Существует Users, Files, Operations и
+__EFMigrationsHistory с версией 9.0.22. Все три FK NO_ACTION, включены и доверены;
+filtered unique index Files WHERE IsDeleted=0 и unique Users.Username присутствуют.
+Рабочие таблицы пусты (0/0/0), seed и пользовательские данные не создавались.
+Down/EnsureDeleted/DROP DATABASE не запускались.
+
+### Итоговые проверки
+
+```powershell
+dotnet restore SecureFileManager.sln
+dotnet build SecureFileManager.sln -c Debug --no-restore
+$env:SFM_ENVIRONMENT = 'Development'
+$env:SFM_CONFIG_DIRECTORY = 'D:\SecureFileManager\src\SecureFileManager.Wpf'
+$env:SFM_RUN_SQL_TESTS = '1'
+dotnet test SecureFileManager.sln -c Debug --no-build --logger 'trx;LogFileName=stage02-final.trx'
+dotnet ef migrations has-pending-model-changes --project src/SecureFileManager.Data --startup-project src/SecureFileManager.Data --no-build
+dotnet list SecureFileManager.sln package --vulnerable --include-transitive
+sqlcmd -S '.\SQLEXPRESS' -d SecureFileManagerDB -E -N -C -b -W -w 240 -f 65001 -i docs/sql/verify-stage02.sql -o docs/sql/stage02-verification.txt
+git diff --check
+```
+
+| Проверка | Результат |
+|---|---|
+| Restore | Все проекты восстановлены |
+| Debug build | Успех: 0 ошибок, 0 предупреждений |
+| xUnit | 16/16 пройдено, 0 ошибок, 0 пропусков; восемь SQL-тестов реального Engine |
+| EF model vs migration | No changes have been made to the model since the last migration |
+| NuGet audit | По текущим источникам известных уязвимых пакетов не найдено |
+| Подключение к рабочей/тестовой БД | Encrypt TRUE, auth NTLM, пароль не используется |
+| Schema check | Таблицы, столбцы, FK, индексы и CHECK подтверждены реальным каталогом SQL |
+| Данные рабочей/итоговой тестовой БД | Users/Files/Operations = 0/0/0 |
+| Local config output | appsettings.Development.json игнорируется Git и отсутствует в Wpf/bin |
+| diff --check | Ошибок whitespace нет; предупреждение Git о LF→CRLF |
+
+Итоговый TRX — tests/SecureFileManager.Tests/TestResults/stage02-final.trx (игнорируется Git).
+Сводка без provider diagnostics — docs/STAGE02_TESTS.md.
+Проверены: CRUD метаданных, фильтр владельца по ID/пути, soft-delete и повтор пути,
+сохранность связанных событий, NULL UserId/FileId, case-insensitive логины и пути,
+FK/CHECK/unique на реальном SQL, rowversion-конфликты, некорректные относительные пути,
+не-UTC даты, запрет изменения/удаления аудита и безопасная ошибка недоступной БД.
+Это проверка Persistence, а не готовой аутентификации/файловой безопасности приложения.
+
+Тесты запускались с несколькими прогонами разработки; каждый создавал новую БД,
+каждый тест откатывал свои записи. Остались только тестовые схемы с историей миграции:
+- SecureFileManagerTests_acddbe084166425f9635fd822e5de512
+- SecureFileManagerTests_66318155c2374aea88801e981637319a
+- SecureFileManagerTests_956bec2580c742cd840383a3522226c0
+- SecureFileManagerTests_f24acc1b2016437ea5d6cf8df557ecc7 (итоговый прогон).
+
+Базы не удалялись. Итоговая пустота/TLS подтверждены в docs/sql/stage02-test-verification.txt.
+Отдельная _missing база для теста отказа не создавалась, туда выполнялся только SELECT.
+Повтор полного набора создаст ещё одну новую тестовую БД; автоматического удаления нет.
+
+### Найденные и исправленные ошибки
+
+1. В SQL-отчёте RowCount был использован как неэкранированный алиас (ошибка 156).
+   Исправлен на [RowCount], повторный запуск exit code 0.
+2. EF SQL execution strategy оборачивает ошибку отсутствующей БД в InvalidOperationException
+   с InnerException SqlException. Первый добавленный тест отказа это обнаружил (15/16);
+   RepositoryBase теперь возвращает InfrastructureError без сырых диагностик. После
+   исправления и финального Development guard весь набор прошёл (16/16).
+3. Локальная конфигурация после пользовательского коммита оказалась отслеживаемой Git;
+   перенесена в игнорируемое имя, старый файл удалён из дерева. Строки с паролем не было.
+
+### WPF и ограничения 02.07
+
+Итоговый Debug exe запущен через computer-use. Найдено одно окно «Secure File Manager —
+стартовый каркас»; доступны те же шесть разделов и начальный экран «Мои файлы».
+Дерево доступности сохранено в docs/STAGE02_STARTUP_UI_TREE.txt. Затем завершён только
+этот тестовый процесс после проверки полного пути. Приложение не мигрирует БД на старте,
+не выполняет пользовательских SQL/файловых действий и не заявляет активный журнал.
+Скриншот/DPI/визуальная регрессия на этом этапе не проверялись, UI не перерабатывался.
+
+02.07 проверен программно: полный read-only скрипт для ручного SSMS 19 находится
+в docs/sql/verify-stage02.sql; фактический SQL-отчёт — docs/sql/stage02-verification.txt.
+Ручной GUI-прогон SSMS не выполнялся, поэтому чекбокс 02.07 оставлен открытым.
+Реализация этапа 02 и автоматические проверки завершены, формальная ручная часть — частично.
+
+### Безопасность и следующий шаг
+
+SEC-01: LINQ/параметры; SQL injection-подобный поиск не изменяет выборку.
+SEC-03: persistence фильтрует переданный OwnerId; аутентификация вызывающего — этап 04.
+SEC-08: конфликт rowversion проверен; физические файловые гонки здесь не затрагивались.
+SEC-09: история сохраняется при soft-delete, NULL FK допускаются, журнал append-only
+через контекст; отказ SQL не возвращает успех. Полный аудит файловых сценариев — этап 05/08.
+SEC-10: нет паролей/хешей/строк подключения в диагностике репозиториев; TLS сохранён,
+исключение сертификата ограничено Development/local. Текст Details должен безопасно
+формировать сервис — произвольные секреты автоматически из текста не распознаются.
+SEC-02/04/05/06/07 физических модулей ещё не реализованы и не выдаются за проверенные.
+
+Обновлены TASKS, DECISIONS, DEVELOPMENT; добавлены PERSISTENCE, SQL-отчёты и тестовая сводка.
+Полный список изменений — docs/STAGE02_FILES.md. Git-коммит не создавался,
+существующие пользовательские данные не удалялись. Следующий шаг: ручная 02.07;
+к этапу 03 можно переходить только после нового разрешения пользователя.
+
+## 2026-11-01 — Завершение ручной проверки 02.07 и этапа 02
+
+Пользователь подтвердил успешную ручную проверку SecureFileManagerDB через SSMS 19:
+таблицы Users, Files, Operations и связи присутствуют, проверочные SQL-запросы
+выполнены без ошибок. Источник результата — сообщение пользователя; Codex не
+выполнял эту ручную проверку самостоятельно и не создавал новые скриншоты/SQL-отчёты.
+
+На основании этого подтверждения задача 02.07 отмечена выполненной в TASKS.md.
+Вместе с ранее пройденными сборкой и 16/16 тестами это закрывает приёмку этапа 02.
+Статус этапа 02: **завершён**. Предыдущие записи об открытой ручной проверке
+сохранены как история и заменены настоящим результатом.
+
+В этом обновлении изменены только TASKS.md и docs/PROGRESS.md. Код, схема БД
+и настройки безопасности не менялись; повторная сборка и тесты не требовались.
+Проверка документации: git diff --check. Этап 03 не начат, Git-коммит не создавался.
+Следующий шаг — этап 03 только после явного разрешения пользователя.

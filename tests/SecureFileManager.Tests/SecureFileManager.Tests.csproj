@@ -16,6 +16,7 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <ProjectReference Include="..\..\src\SecureFileManager.Wpf\SecureFileManager.Wpf.csproj" />
+    <ProjectReference Include="..\..\src\SecureFileManager.Data\SecureFileManager.Data.csproj" />
   </ItemGroup>
 
 </Project>

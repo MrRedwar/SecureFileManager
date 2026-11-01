@@ -1,0 +1,86 @@
+﻿Контекст базы данных изменен на "SecureFileManagerDB".
+DatabaseName ProductVersion
+------------ --------------
+SecureFileManagerDB 15.0.2000.5
+encrypt_option auth_scheme
+-------------- -----------
+TRUE NTLM
+MigrationId ProductVersion
+----------- --------------
+20261101094955_InitialCreate 9.0.22
+TableName ColumnName SqlType max_length is_nullable collation_name
+--------- ---------- ------- ---------- ----------- --------------
+Files Id uniqueidentifier 16 0 NULL
+Files OwnerId uniqueidentifier 16 0 NULL
+Files Name nvarchar 510 0 Cyrillic_General_CI_AS
+Files RelativePath nvarchar 800 0 Latin1_General_100_CI_AS
+Files Kind nvarchar 32 0 Cyrillic_General_CI_AS
+Files Extension nvarchar 64 1 Cyrillic_General_CI_AS
+Files SizeBytes bigint 8 0 NULL
+Files CreatedAtUtc datetime2 8 0 NULL
+Files ModifiedAtUtc datetime2 8 0 NULL
+Files IsDeleted bit 1 0 NULL
+Files DeletedAtUtc datetime2 8 1 NULL
+Files RowVersion timestamp 8 0 NULL
+Operations Id uniqueidentifier 16 0 NULL
+Operations UserId uniqueidentifier 16 1 NULL
+Operations ActorNameSnapshot nvarchar 100 1 Cyrillic_General_CI_AS
+Operations FileId uniqueidentifier 16 1 NULL
+Operations OccurredAtUtc datetime2 8 0 NULL
+Operations OperationType nvarchar 64 0 Cyrillic_General_CI_AS
+Operations Result nvarchar 32 0 Cyrillic_General_CI_AS
+Operations TargetPathSnapshot nvarchar 800 1 Cyrillic_General_CI_AS
+Operations Details nvarchar 1024 1 Cyrillic_General_CI_AS
+Operations CorrelationId uniqueidentifier 16 0 NULL
+Users Id uniqueidentifier 16 0 NULL
+Users Username nvarchar 100 0 Latin1_General_100_CI_AS
+Users PasswordHash nvarchar 2048 0 Cyrillic_General_CI_AS
+Users CreatedAtUtc datetime2 8 0 NULL
+Users IsActive bit 1 0 NULL
+Users FailedLoginCount int 4 0 NULL
+Users LockoutUntilUtc datetime2 8 1 NULL
+TableName name is_unique filter_definition key_ordinal ColumnName
+--------- ---- --------- ----------------- ----------- ----------
+Files IX_Files_OwnerId 0 NULL 1 OwnerId
+Files IX_Files_OwnerId_RelativePath 1 ([IsDeleted]=(0)) 1 OwnerId
+Files IX_Files_OwnerId_RelativePath 1 ([IsDeleted]=(0)) 2 RelativePath
+Files PK_Files 1 NULL 1 Id
+Operations IX_Operations_CorrelationId 0 NULL 1 CorrelationId
+Operations IX_Operations_FileId 0 NULL 1 FileId
+Operations IX_Operations_OperationType_Result 0 NULL 1 OperationType
+Operations IX_Operations_OperationType_Result 0 NULL 2 Result
+Operations IX_Operations_UserId_OccurredAtUtc 0 NULL 1 UserId
+Operations IX_Operations_UserId_OccurredAtUtc 0 NULL 2 OccurredAtUtc
+Operations PK_Operations 1 NULL 1 Id
+Users IX_Users_Username 1 NULL 1 Username
+Users PK_Users 1 NULL 1 Id
+name ChildTable ChildColumn ParentTable delete_referential_action_desc is_disabled is_not_trusted
+---- ---------- ----------- ----------- ------------------------------ ----------- --------------
+FK_Files_Users_OwnerId Files OwnerId Users NO_ACTION 0 0
+FK_Operations_Users_UserId Operations UserId Users NO_ACTION 0 0
+FK_Operations_Files_FileId Operations FileId Files NO_ACTION 0 0
+TableName name definition is_disabled is_not_trusted
+--------- ---- ---------- ----------- --------------
+Users CK_Users_FailedLoginCount ([FailedLoginCount]>=(0)) 0 0
+Users CK_Users_PasswordHash (len([PasswordHash])>(0)) 0 0
+Users CK_Users_Username (len(ltrim(rtrim([Username])))>=(3) AND len(ltrim(rtrim([Username])))<=(50) AND datalength([Username])=datalength(ltrim(rtrim([Username])))) 0 0
+Files CK_Files_Dates ([ModifiedAtUtc]>=[CreatedAtUtc] AND ([DeletedAtUtc] IS NULL OR [DeletedAtUtc]>=[CreatedAtUtc])) 0 0
+Files CK_Files_Kind ([Kind]='Directory' OR [Kind]='File') 0 0
+Files CK_Files_Name (len([Name])>(0)) 0 0
+Files CK_Files_RelativePath (len([RelativePath])>(0)) 0 0
+Files CK_Files_SizeBytes ([SizeBytes]>=(0)) 0 0
+Files CK_Files_SoftDelete ([IsDeleted]=(0) AND [DeletedAtUtc] IS NULL OR [IsDeleted]=(1) AND [DeletedAtUtc] IS NOT NULL) 0 0
+Operations CK_Operations_Result ([Result]='Failed' OR [Result]='Denied' OR [Result]='Success') 0 0
+Operations CK_Operations_Type ([OperationType]='OPERATION_FAILED' OR [OperationType]='ACCESS_DENIED' OR [OperationType]='ZIP_EXTRACTED' OR [OperationType]='ZIP_CREATED' OR [OperationType]='XML_VALIDATED' OR [OperationType]='JSON_VALIDATED' 
+OR [OperationType]='DIRECTORY_CREATED' OR [Ope 0 0
+TableName RowCount
+--------- --------
+Users 0
+Files 0
+Operations 0
+OwnerId RelativePath DuplicateCount
+------- ------------ --------------
+Id
+--
+Id
+--

@@ -12,6 +12,6 @@
     <ProjectReference Include="..\SecureFileManager.Core\SecureFileManager.Core.csproj" />
     <ProjectReference Include="..\SecureFileManager.Data\SecureFileManager.Data.csproj" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.22" />
-    <None Remove="appsettings.Development.local.json;appsettings.local.json" />
+    <None Remove="appsettings.Development.json;appsettings.Development.local.json;appsettings.local.json" />
   </ItemGroup>
 </Project>

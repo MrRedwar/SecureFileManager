@@ -1,0 +1,47 @@
+# Файлы этапа 02
+
+Корень: D:/SecureFileManager. M — изменён, A — создан, D — удалён из рабочего дерева.
+
+- M: [.gitignore](D:/SecureFileManager/.gitignore)
+- M: [TASKS.md](D:/SecureFileManager/TASKS.md)
+- M: [docs/DECISIONS.md](D:/SecureFileManager/docs/DECISIONS.md)
+- M: [docs/DEVELOPMENT.md](D:/SecureFileManager/docs/DEVELOPMENT.md)
+- M: [docs/PROGRESS.md](D:/SecureFileManager/docs/PROGRESS.md)
+- M: [src/SecureFileManager.Data/SecureFileManager.Data.csproj](D:/SecureFileManager/src/SecureFileManager.Data/SecureFileManager.Data.csproj)
+- M: [src/SecureFileManager.Wpf/App.xaml.cs](D:/SecureFileManager/src/SecureFileManager.Wpf/App.xaml.cs)
+- M: [src/SecureFileManager.Wpf/SecureFileManager.Wpf.csproj](D:/SecureFileManager/src/SecureFileManager.Wpf/SecureFileManager.Wpf.csproj)
+- D: src/SecureFileManager.Wpf/appsettings.Development.local.json
+- M: [tests/SecureFileManager.Tests/SecureFileManager.Tests.csproj](D:/SecureFileManager/tests/SecureFileManager.Tests/SecureFileManager.Tests.csproj)
+- A: [.config/dotnet-tools.json](D:/SecureFileManager/.config/dotnet-tools.json)
+- A: [docs/PERSISTENCE.md](D:/SecureFileManager/docs/PERSISTENCE.md)
+- A: [docs/STAGE02_STARTUP_UI_TREE.txt](D:/SecureFileManager/docs/STAGE02_STARTUP_UI_TREE.txt)
+- A: [docs/STAGE02_TESTS.md](D:/SecureFileManager/docs/STAGE02_TESTS.md)
+- A: [docs/sql/initial-create.sql](D:/SecureFileManager/docs/sql/initial-create.sql)
+- A: [docs/sql/stage02-test-verification.txt](D:/SecureFileManager/docs/sql/stage02-test-verification.txt)
+- A: [docs/sql/stage02-verification.txt](D:/SecureFileManager/docs/sql/stage02-verification.txt)
+- A: [docs/sql/verify-stage02.sql](D:/SecureFileManager/docs/sql/verify-stage02.sql)
+- A: [src/SecureFileManager.Core/Entities/FileRecord.cs](D:/SecureFileManager/src/SecureFileManager.Core/Entities/FileRecord.cs)
+- A: [src/SecureFileManager.Core/Entities/Operation.cs](D:/SecureFileManager/src/SecureFileManager.Core/Entities/Operation.cs)
+- A: [src/SecureFileManager.Core/Entities/User.cs](D:/SecureFileManager/src/SecureFileManager.Core/Entities/User.cs)
+- A: [src/SecureFileManager.Core/Interfaces/IFileRepository.cs](D:/SecureFileManager/src/SecureFileManager.Core/Interfaces/IFileRepository.cs)
+- A: [src/SecureFileManager.Core/Interfaces/IOperationRepository.cs](D:/SecureFileManager/src/SecureFileManager.Core/Interfaces/IOperationRepository.cs)
+- A: [src/SecureFileManager.Core/Interfaces/IUserRepository.cs](D:/SecureFileManager/src/SecureFileManager.Core/Interfaces/IUserRepository.cs)
+- A: [src/SecureFileManager.Core/Results/RepositoryResult.cs](D:/SecureFileManager/src/SecureFileManager.Core/Results/RepositoryResult.cs)
+- A: [src/SecureFileManager.Data/AppDbContext.cs](D:/SecureFileManager/src/SecureFileManager.Data/AppDbContext.cs)
+- A: [src/SecureFileManager.Data/AppDbContextFactory.cs](D:/SecureFileManager/src/SecureFileManager.Data/AppDbContextFactory.cs)
+- A: [src/SecureFileManager.Data/Configuration/DatabaseConfiguration.cs](D:/SecureFileManager/src/SecureFileManager.Data/Configuration/DatabaseConfiguration.cs)
+- A: [src/SecureFileManager.Data/DependencyInjection/DataServiceCollectionExtensions.cs](D:/SecureFileManager/src/SecureFileManager.Data/DependencyInjection/DataServiceCollectionExtensions.cs)
+- A: [src/SecureFileManager.Data/Migrations/20261101094955_InitialCreate.Designer.cs](D:/SecureFileManager/src/SecureFileManager.Data/Migrations/20261101094955_InitialCreate.Designer.cs)
+- A: [src/SecureFileManager.Data/Migrations/20261101094955_InitialCreate.cs](D:/SecureFileManager/src/SecureFileManager.Data/Migrations/20261101094955_InitialCreate.cs)
+- A: [src/SecureFileManager.Data/Migrations/AppDbContextModelSnapshot.cs](D:/SecureFileManager/src/SecureFileManager.Data/Migrations/AppDbContextModelSnapshot.cs)
+- A: [src/SecureFileManager.Data/Repositories/FileRepository.cs](D:/SecureFileManager/src/SecureFileManager.Data/Repositories/FileRepository.cs)
+- A: [src/SecureFileManager.Data/Repositories/OperationRepository.cs](D:/SecureFileManager/src/SecureFileManager.Data/Repositories/OperationRepository.cs)
+- A: [src/SecureFileManager.Data/Repositories/RepositoryBase.cs](D:/SecureFileManager/src/SecureFileManager.Data/Repositories/RepositoryBase.cs)
+- A: [src/SecureFileManager.Data/Repositories/UserRepository.cs](D:/SecureFileManager/src/SecureFileManager.Data/Repositories/UserRepository.cs)
+- A: [tests/SecureFileManager.Tests/DatabaseConfigurationTests.cs](D:/SecureFileManager/tests/SecureFileManager.Tests/DatabaseConfigurationTests.cs)
+- A: [tests/SecureFileManager.Tests/PersistenceTests.cs](D:/SecureFileManager/tests/SecureFileManager.Tests/PersistenceTests.cs)
+- A: [tests/SecureFileManager.Tests/SqlDatabaseFixture.cs](D:/SecureFileManager/tests/SecureFileManager.Tests/SqlDatabaseFixture.cs)
+- A: [docs/STAGE02_FILES.md](D:/SecureFileManager/docs/STAGE02_FILES.md)
+
+Создан локально и игнорируется Git: src/SecureFileManager.Wpf/appsettings.Development.json.
+Созданные SQL-базы перечислены в PROGRESS.md; физические файлы SQL находятся под управлением Engine, в Git не добавлялись.
