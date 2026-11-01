@@ -1,12 +1,49 @@
-**/bin/
-**/obj/
+
+# ===== Codex =====
+/AGENTS.md
+/README_FOR_CODEX.md
+
+# ===== Visual Studio =====
 .vs/
+.vscode/
 *.user
 *.suo
+*.userosscache
+
+# ===== Build =====
+bin/
+obj/
+Debug/
+Release/
+[Bb]uild/
+[Aa]rtifacts/
+
+# ===== NuGet =====
+packages/
+*.nupkg
+
+# ===== Tests =====
 TestResults/
-Storage/
-**/appsettings.Development.local.json
-**/appsettings.local.json
+*.trx
+coverage/
+coverage.cobertura.xml
+
+# ===== Local configuration =====
 .env
-*.pfx
-*.key
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+
+# ===== Database =====
+*.db
+*.db-shm
+*.db-wal
+*.mdf
+*.ldf
+
+# ===== Temporary files =====
+*.tmp
+*.bak
+*.log
