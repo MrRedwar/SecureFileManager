@@ -9,6 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Assets\**\*.png" />
+    <Resource Include="Assets\**\*.png" />
     <ProjectReference Include="..\SecureFileManager.Core\SecureFileManager.Core.csproj" />
     <ProjectReference Include="..\SecureFileManager.Data\SecureFileManager.Data.csproj" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.22" />

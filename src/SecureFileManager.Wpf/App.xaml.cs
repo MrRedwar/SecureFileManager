@@ -22,6 +22,12 @@ public partial class App : Application
         {
             _services = new ServiceCollection()
                 .AddSecureFileManagerData()
+                .AddSingleton<DrivesViewModel>()
+                .AddSingleton<FilesViewModel>()
+                .AddSingleton<ArchivesViewModel>()
+                .AddSingleton<FormatsViewModel>()
+                .AddSingleton<JournalViewModel>()
+                .AddSingleton<SettingsViewModel>()
                 .AddSingleton<MainWindowViewModel>()
                 .AddSingleton<MainWindow>()
                 .BuildServiceProvider(new ServiceProviderOptions

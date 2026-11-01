@@ -1,0 +1,11 @@
+﻿TableName Rows
+--------- ----
+Users 0
+Files 0
+Operations 0
+MigrationId ProductVersion
+----------- --------------
+20261101094955_InitialCreate 9.0.22
+encrypt_option auth_scheme
+-------------- -----------
+TRUE NTLM

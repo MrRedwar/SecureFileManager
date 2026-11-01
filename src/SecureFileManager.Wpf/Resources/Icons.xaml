@@ -1,0 +1,36 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<BitmapImage x:Key="Raw.Icon.Eye" UriSource="/SecureFileManager.Wpf;component/Assets/branding/eye-of-horus.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.Eye" Source="{StaticResource Raw.Icon.Eye}" SourceRect="102,236,1072,795" />
+<BitmapImage x:Key="Raw.Icon.Drives" UriSource="/SecureFileManager.Wpf;component/Assets/icons/drives.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.Drives" Source="{StaticResource Raw.Icon.Drives}" SourceRect="40,58,202,198" />
+<BitmapImage x:Key="Raw.Icon.Files" UriSource="/SecureFileManager.Wpf;component/Assets/icons/files.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.Files" Source="{StaticResource Raw.Icon.Files}" SourceRect="13,60,226,189" />
+<BitmapImage x:Key="Raw.Icon.Archives" UriSource="/SecureFileManager.Wpf;component/Assets/icons/archives.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.Archives" Source="{StaticResource Raw.Icon.Archives}" SourceRect="8,57,227,197" />
+<BitmapImage x:Key="Raw.Icon.JsonXml" UriSource="/SecureFileManager.Wpf;component/Assets/icons/json-xml.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.JsonXml" Source="{StaticResource Raw.Icon.JsonXml}" SourceRect="10,44,194,212" />
+<BitmapImage x:Key="Raw.Icon.Journal" UriSource="/SecureFileManager.Wpf;component/Assets/icons/journal.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.Journal" Source="{StaticResource Raw.Icon.Journal}" SourceRect="40,30,194,212" />
+<BitmapImage x:Key="Raw.Icon.Settings" UriSource="/SecureFileManager.Wpf;component/Assets/icons/settings.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.Settings" Source="{StaticResource Raw.Icon.Settings}" SourceRect="21,25,214,216" />
+<BitmapImage x:Key="Raw.Icon.Create" UriSource="/SecureFileManager.Wpf;component/Assets/icons/create.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.Create" Source="{StaticResource Raw.Icon.Create}" SourceRect="21,29,201,211" />
+<BitmapImage x:Key="Raw.Icon.Delete" UriSource="/SecureFileManager.Wpf;component/Assets/icons/delete.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.Delete" Source="{StaticResource Raw.Icon.Delete}" SourceRect="18,26,184,214" />
+<BitmapImage x:Key="Raw.Icon.Search" UriSource="/SecureFileManager.Wpf;component/Assets/icons/search.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.Search" Source="{StaticResource Raw.Icon.Search}" SourceRect="32,9,204,210" />
+<BitmapImage x:Key="Raw.Icon.Security" UriSource="/SecureFileManager.Wpf;component/Assets/icons/security.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.Security" Source="{StaticResource Raw.Icon.Security}" SourceRect="29,0,201,225" />
+<BitmapImage x:Key="Raw.Icon.User" UriSource="/SecureFileManager.Wpf;component/Assets/icons/user.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.User" Source="{StaticResource Raw.Icon.User}" SourceRect="13,8,210,213" />
+<BitmapImage x:Key="Raw.Icon.Database" UriSource="/SecureFileManager.Wpf;component/Assets/icons/database.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Icon.Database" Source="{StaticResource Raw.Icon.Database}" SourceRect="10,6,192,211" />
+<BitmapImage x:Key="Raw.Art.Anubis" UriSource="/SecureFileManager.Wpf;component/Assets/illustrations/anubis-sidebar.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Art.Anubis" Source="{StaticResource Raw.Art.Anubis}" SourceRect="15,108,1056,1223" />
+<BitmapImage x:Key="Raw.Art.Header" UriSource="/SecureFileManager.Wpf;component/Assets/ornaments/header-winged-sun.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Art.Header" Source="{StaticResource Raw.Art.Header}" SourceRect="58,223,2057,211" />
+<BitmapImage x:Key="Raw.Art.Footer" UriSource="/SecureFileManager.Wpf;component/Assets/ornaments/footer-lotus-ibis.png" CacheOption="OnLoad" />
+<CroppedBitmap x:Key="Art.Footer" Source="{StaticResource Raw.Art.Footer}" SourceRect="62,219,2049,333" />
+<BitmapImage x:Key="Texture.Papyrus" UriSource="/SecureFileManager.Wpf;component/Assets/textures/papyrus.png" CacheOption="OnLoad" />
+<BitmapImage x:Key="Texture.Stone" UriSource="/SecureFileManager.Wpf;component/Assets/textures/dark-stone.png" CacheOption="OnLoad" />
+</ResourceDictionary>

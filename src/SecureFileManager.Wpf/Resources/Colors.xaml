@@ -1,0 +1,17 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Color x:Key="Color.Navy900">#192C36</Color>
+<Color x:Key="Color.Navy800">#233944</Color>
+<Color x:Key="Color.Teal600">#177781</Color>
+<Color x:Key="Color.Teal700">#115D67</Color>
+<Color x:Key="Color.Gold500">#BA8C45</Color>
+<Color x:Key="Color.Gold200">#E4D0AD</Color>
+<Color x:Key="Color.Sand100">#F5F0E6</Color>
+<Color x:Key="Color.Paper50">#FBF9F5</Color>
+<Color x:Key="Color.TextPrimary">#1F2933</Color>
+<Color x:Key="Color.TextSecondary">#5D6267</Color>
+<Color x:Key="Color.TextOnDark">#F7F1E6</Color>
+<Color x:Key="Color.Success">#287A50</Color>
+<Color x:Key="Color.Warning">#9A630B</Color>
+<Color x:Key="Color.Danger">#AA3434</Color>
+<Color x:Key="Color.Border">#D7CCBC</Color>
+</ResourceDictionary>

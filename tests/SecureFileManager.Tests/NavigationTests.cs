@@ -5,6 +5,24 @@ namespace SecureFileManager.Tests;
 public sealed class NavigationTests
 {
     [Fact]
+    public void NavigationCommandsRejectUnknownTargetsAndKeepSectionState()
+    {
+        var model = new MainWindowViewModel();
+        var files = Assert.IsType<FilesViewModel>(model.SelectedSection);
+        var fixture = new FileListItem("UI test fixture", "Только тест", "0", "—", "Icon.Files");
+        files.Items.Add(fixture);
+        files.SelectedFile = fixture;
+        Assert.Equal(1, files.SelectedCount);
+        model.NavigateCommand.Execute(model.Sections[0]);
+        model.NavigateCommand.Execute(files);
+        Assert.Same(files, model.SelectedSection);
+        Assert.Same(fixture, files.SelectedFile);
+        Assert.False(model.NavigateCommand.CanExecute(null));
+        model.NavigateCommand.Execute(new SectionViewModel("Unknown", ""));
+        Assert.Same(files, model.SelectedSection);
+        Assert.All(model.Sections, section => Assert.False(section.UnavailableCommand.CanExecute(null)));
+    }
+    [Fact]
     public void NavigationSelectsEveryRegisteredSectionAndNotifiesBinding()
     {
         var model = new MainWindowViewModel();

@@ -1,0 +1,19 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<SolidColorBrush x:Key="Brush.Navy900" Color="{StaticResource Color.Navy900}" />
+<SolidColorBrush x:Key="Brush.Navy800" Color="{StaticResource Color.Navy800}" />
+<SolidColorBrush x:Key="Brush.Teal600" Color="{StaticResource Color.Teal600}" />
+<SolidColorBrush x:Key="Brush.Teal700" Color="{StaticResource Color.Teal700}" />
+<SolidColorBrush x:Key="Brush.Gold500" Color="{StaticResource Color.Gold500}" />
+<SolidColorBrush x:Key="Brush.Gold200" Color="{StaticResource Color.Gold200}" />
+<SolidColorBrush x:Key="Brush.Sand100" Color="{StaticResource Color.Sand100}" />
+<SolidColorBrush x:Key="Brush.Paper50" Color="{StaticResource Color.Paper50}" />
+<SolidColorBrush x:Key="Brush.TextPrimary" Color="{StaticResource Color.TextPrimary}" />
+<SolidColorBrush x:Key="Brush.TextSecondary" Color="{StaticResource Color.TextSecondary}" />
+<SolidColorBrush x:Key="Brush.TextOnDark" Color="{StaticResource Color.TextOnDark}" />
+<SolidColorBrush x:Key="Brush.Success" Color="{StaticResource Color.Success}" />
+<SolidColorBrush x:Key="Brush.Warning" Color="{StaticResource Color.Warning}" />
+<SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}" />
+<SolidColorBrush x:Key="Brush.Border" Color="{StaticResource Color.Border}" />
+<ImageBrush x:Key="Brush.Papyrus" ImageSource="{StaticResource Texture.Papyrus}" Stretch="UniformToFill" Opacity="0.25" />
+<ImageBrush x:Key="Brush.Stone" ImageSource="{StaticResource Texture.Stone}" Stretch="UniformToFill" Opacity="0.25" />
+</ResourceDictionary>

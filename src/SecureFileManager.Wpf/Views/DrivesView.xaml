@@ -1,0 +1,9 @@
+<UserControl Style="{StaticResource {x:Type UserControl}}" x:Class="SecureFileManager.Wpf.Views.DrivesView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
+ <Border Style="{StaticResource Card}" Margin="0,0,0,20"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+ <Image Source="{StaticResource Icon.Drives}" Width="46" Height="46" VerticalAlignment="Top"/>
+ <StackPanel Grid.Column="1"><TextBlock Text="Накопители ещё не загружены" Style="{StaticResource CardHeading}"/><TextBlock Text="Просмотр дисков появится на этапе 05. Он не предоставляет доступ к произвольным папкам Windows." Style="{StaticResource MutedText}" Margin="0,8,0,18"/>
+ <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Общий объём" Style="{StaticResource LabelText}"/><TextBlock Text="Нет данных"/></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="Свободно" Style="{StaticResource LabelText}"/><TextBlock Text="Нет данных"/></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="Файловая система" Style="{StaticResource LabelText}"/><TextBlock Text="Нет данных"/></StackPanel></Grid>
+ <ProgressBar Value="0" Height="6" Margin="0,18,0,8" Foreground="{DynamicResource Brush.Teal600}" Background="{DynamicResource Brush.Sand100}" IsEnabled="False" AutomationProperties.Name="Заполнение не определено"/><TextBlock Text="Заполнение не определено" Style="{StaticResource MutedText}"/></StackPanel></Grid></Border>
+ <ContentControl Content="{Binding}" ContentTemplate="{StaticResource SectionState}"/>
+</StackPanel></ScrollViewer></UserControl>

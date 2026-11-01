@@ -1,0 +1,88 @@
+Window: "Secure File Manager", App: SecureFileManager.Wpf.exe.
+	0 окно Secure File Manager Secondary Actions: Raise
+		1 image Око Гора
+		2 текст SECURE FILE MANAGER
+		3 текст БЕЗОПАСНОСТЬ · ПОРЯДОК · ВАШИ ДАННЫЕ
+		4 image
+		5 кнопка Свернуть Description: Свернуть ID: MinimizeWindow
+			6 текст —
+		7 кнопка Развернуть или восстановить Description: Развернуть ID: MaximizeWindow
+			8 текст □
+		9 кнопка Закрыть Description: Закрыть ID: CloseWindow
+			10 текст ×
+		11 список Разделы приложения
+			12 элемент списка (selectable) Диски
+				13 image
+				14 текст Диски
+			15 элемент списка (selectable) Мои файлы
+				16 image
+				17 текст Мои файлы
+			18 элемент списка (selectable) Архивы
+				19 image
+				20 текст Архивы
+			21 элемент списка (selectable) JSON / XML
+				22 image
+				23 текст JSON / XML
+			24 элемент списка (selectable) Журнал
+				25 image
+				26 текст Журнал
+			27 элемент списка (selectable) Настройки
+				28 image
+				29 текст Настройки
+		30 image
+		31 image
+		32 текст Текущий пользователь
+		33 текст Не авторизован
+		34 image
+		35 текст Мои файлы
+		36 текст Личное пространство для ваших документов
+		37 текст Хранилище
+		38 текст Недоступно до входа
+		39 текст Аудит
+		40 текст Просмотр недоступен
+		41 настраиваемый
+			42 текст Моё хранилище / Вход не выполнен
+			43 кнопка (disabled) Создать Description: Действие станет доступно после реализации сервиса и входа в приложение.
+				44 image (disabled)
+				45 текст (disabled) Создать
+			46 кнопка (disabled) Открыть Description: Действие станет доступно после реализации сервиса и входа в приложение.
+				47 image (disabled)
+				48 текст (disabled) Открыть
+			49 кнопка (disabled) Удалить Description: Действие станет доступно после реализации сервиса и входа в приложение.
+				50 image (disabled)
+				51 текст (disabled) Удалить
+			52 кнопка (disabled) Архивировать Description: Действие станет доступно после реализации сервиса и входа в приложение.
+				53 image (disabled)
+				54 текст (disabled) Архивировать
+			55 изменить (disabled, settable, string) Поиск файлов и папок Description: Поиск будет доступен на этапе 05. Value: Поиск файлов и папок…
+			56 image
+			57 сетка данных Файлы пользователя
+				58 заголовок ID: PART_ColumnHeadersPresenter
+					59 элемент заголовка Имя
+						60 текст Имя
+						61 бегунок ID: PART_RightHeaderGripper
+					62 элемент заголовка Тип
+						63 текст Тип
+						64 бегунок ID: PART_LeftHeaderGripper
+						65 бегунок ID: PART_RightHeaderGripper
+					66 элемент заголовка Размер
+						67 текст Размер
+						68 бегунок ID: PART_LeftHeaderGripper
+						69 бегунок ID: PART_RightHeaderGripper
+					70 элемент заголовка Дата изменения
+						71 текст Дата изменения
+						72 бегунок ID: PART_LeftHeaderGripper
+						73 бегунок ID: PART_RightHeaderGripper
+			74 область SecureFileManager.Wpf.ViewModels.FilesViewModel
+				75 image ID: StateIcon
+				76 текст Данные ещё не загружены ID: StateTitle
+				77 текст Действия пока недоступны. Данные появятся после подключения раздела.
+			78 текст Элементов: 0 · Выбрано: 0
+			79 текст Вход не выполнен · содержимое не загружено
+		80 текст ХРАМОВЫЙ АРХИВ
+		81 текст Раздел: Мои файлы · Не авторизован
+		82 image
+
+Document text: ```
+Поиск файлов и папок…
+```
