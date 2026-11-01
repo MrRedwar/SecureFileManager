@@ -1,0 +1,50 @@
+<Window x:Class="SecureFileManager.Wpf.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Secure File Manager — стартовый каркас"
+        Width="1120" Height="720" MinWidth="1024" MinHeight="640"
+        WindowStartupLocation="CenterScreen" Language="ru-RU" UseLayoutRounding="True">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Border Background="{DynamicResource Brush.Navy}" BorderBrush="{DynamicResource Brush.Gold}"
+                BorderThickness="0,0,0,2" Padding="24,20">
+            <StackPanel>
+                <TextBlock Text="Secure File Manager" FontFamily="Georgia" FontSize="26"
+                           Foreground="{DynamicResource Brush.OnDark}" />
+                <TextBlock Text="Этап 01 · Базовая структура приложения" Margin="0,8,0,0"
+                           Foreground="{DynamicResource Brush.OnDark}" />
+            </StackPanel>
+        </Border>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="232" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <ListBox ItemsSource="{Binding Sections}" DisplayMemberPath="Title"
+                     SelectedItem="{Binding SelectedSection, Mode=TwoWay}"
+                     ItemContainerStyle="{StaticResource NavigationItem}"
+                     Background="{DynamicResource Brush.Navy}" BorderThickness="0"
+                     Padding="8,16" AutomationProperties.Name="Разделы приложения" />
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="32">
+                    <TextBlock Text="{Binding SelectedSection.Title}" FontSize="30" FontFamily="Georgia" />
+                    <Border Background="{DynamicResource Brush.Sand}" Padding="24" Margin="0,24,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Раздел пока не реализован" FontSize="18" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding SelectedSection.Description}" TextWrapping="Wrap" Margin="0,12,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="Доступна только навигация по экранам-заготовкам. Вход, подключение к БД, файловые операции и аудит в приложении ещё не реализованы."
+                               TextWrapping="Wrap" Margin="0,24,0,0" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+        <Border Grid.Row="2" Padding="24,12" Background="{DynamicResource Brush.Sand}">
+            <TextBlock Text="Пользователь не вошёл · Подключение к БД приложением не проверялось" TextWrapping="Wrap" />
+        </Border>
+    </Grid>
+</Window>
