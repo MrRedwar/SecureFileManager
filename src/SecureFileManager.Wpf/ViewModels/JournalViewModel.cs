@@ -6,6 +6,7 @@ public sealed record AuditListItem(string OccurredAt, string Actor, string Actio
 }
 public sealed class JournalViewModel() : SectionViewModel("Журнал", "История собственных действий", "Icon.Journal")
 {
+    public override void ResetUserState() { base.ResetUserState(); Items.Clear();  }
     public ObservableCollection<AuditListItem> Items { get; } = [];
     public IReadOnlyList<string> ResultFilters { get; } = ["Все результаты", "Успех", "Отказано", "Ошибка"];
     public IReadOnlyList<string> ActionFilters { get; } = ["Все операции", "Файлы", "Вход и выход", "Архивы", "Проверка форматов"];

@@ -15,5 +15,5 @@
  </DataGrid.Columns></DataGrid>
  <ScrollViewer Margin="0,44,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><ScrollViewer.Style><Style TargetType="ScrollViewer"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Items.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></ScrollViewer.Style><ContentControl Content="{Binding}" ContentTemplate="{StaticResource SectionState}"/></ScrollViewer>
  </Grid>
- <DockPanel Grid.Row="3" Margin="0,16,0,0"><TextBlock Style="{StaticResource MutedText}"><Run Text="Элементов: "/><Run Text="{Binding Items.Count, Mode=OneWay}"/><Run Text="   ·   Выбрано: "/><Run Text="{Binding SelectedCount, Mode=OneWay}"/></TextBlock><TextBlock Text="Вход не выполнен · содержимое не загружено" Style="{StaticResource MutedText}" TextAlignment="Right"/></DockPanel>
+ <DockPanel Grid.Row="3" Margin="0,16,0,0"><TextBlock Style="{StaticResource MutedText}"><Run Text="Элементов: "/><Run Text="{Binding Items.Count, Mode=OneWay}"/><Run Text="   ·   Выбрано: "/><Run Text="{Binding SelectedCount, Mode=OneWay}"/></TextBlock><TextBlock Text="Содержимое пока не загружено" Style="{StaticResource MutedText}" TextAlignment="Right"/></DockPanel>
 </Grid></UserControl>

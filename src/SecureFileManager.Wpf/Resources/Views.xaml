@@ -5,4 +5,4 @@
 <DataTemplate DataType="{x:Type vm:FormatsViewModel}"><views:FormatsView/></DataTemplate>
 <DataTemplate DataType="{x:Type vm:JournalViewModel}"><views:JournalView/></DataTemplate>
 <DataTemplate DataType="{x:Type vm:SettingsViewModel}"><views:SettingsView/></DataTemplate>
-</ResourceDictionary>
+<DataTemplate DataType="{x:Type vm:LoginViewModel}"><views:LoginView/></DataTemplate><DataTemplate DataType="{x:Type vm:RegisterViewModel}"><views:RegisterView/></DataTemplate></ResourceDictionary>

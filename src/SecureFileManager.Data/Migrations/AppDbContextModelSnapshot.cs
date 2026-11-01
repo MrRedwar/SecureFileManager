@@ -166,6 +166,9 @@ namespace SecureFileManager.Data.Migrations
                     b.Property<int>("FailedLoginCount")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("FailedLoginWindowStartUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")

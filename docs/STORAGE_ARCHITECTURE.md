@@ -1,7 +1,8 @@
 # Архитектура хранения и расширение A → B
 
 **Этап:** 03.5, архитектурная подготовка. **Дата:** 01.11.2026.
-**Результат:** анализ и план; исходный код, контракты C#, UI и БД не изменены.
+**Исходный результат 03.5:** анализ и план без изменения кода/БД.
+**Актуализация этапа 04:** реализованные компоненты и текущие границы — раздел 13.
 
 ## 1. Решение и границы
 
@@ -21,7 +22,7 @@
 простой заменой строки корня: потребуются расширения каталога, политик и аудита.
 К началу этапа 04 для A архитектурных блокеров не обнаружено.
 
-## 2. Фактическое состояние проекта
+## 2. Состояние проекта при анализе этапа 03.5
 
 | Компонент | Что существует | Значение для расширения |
 |---|---|---|
@@ -335,3 +336,54 @@ catalog/access/path/audit и persistence потребуют целевых до�
 Изменена только документация; restore/build/test, SQL-команды и GUI не запускались.
 Проверки согласованности и git diff --check фиксируются в PROGRESS.md.
 Этап 04 не начат, Git-коммит не создан.
+
+
+## 13. Актуализация после реализации этапа 04 (01.11.2026)
+
+Разделы 2–12 фиксируют исходный анализ этапа 03.5. Следующие компоненты теперь
+реализованы, поэтому прежние формулировки «пока нет» относятся к тому снимку.
+
+| Ответственность | Текущий компонент |
+|---|---|
+| Authentication | IAuthenticationService, IRegistrationService, PasswordSecurity, LoginProtectionPolicy |
+| Session | IUserSession, UserSession, SessionIdentity(Id, Username), Revision |
+| Access Policy A | IFileAccessPolicy / PersonalFileAccessPolicy, проверка actor == owner |
+| Storage Location A | Доверенный IPersonalStorageProvisioner, настройки корня; каталога нескольких locations нет |
+| Path Policy | IPathPolicy / PersonalStorage, общая RelativePathSyntax; не файловый CRUD |
+| Workspace orchestration | IUserStorageService / UserStorageService: Session, DB-active, owner, Revision, paths |
+| Audit/SQL identity | IAuditService/SecurityAudit, IIdentityStore/IIdentityTransaction, прежний OperationRepository |
+
+IPersonalStorageProvisioner и IPathPolicy — доверенные инфраструктурные порты,
+не авторизующие публичные команды VM. Защищённый вход в workspace проходит через
+IUserStorageService. Authentication/Session не зависят от физического корня.
+FileRepository по-прежнему не аутентифицирует caller: будущий FileService должен
+получать владельца из Session и использовать политику, не прокидывать ownerId из UI.
+
+PersonalStorage реализует локальный FS-адаптер в Wpf/Infrastructure, не UI/code-behind.
+Он не обращается к SQL. Корень по умолчанию находится под профилем Windows вне Git,
+SFM_STORAGE_ROOT задаёт Storage, ниже всегда Users/{GUID}. Относительные/сетевые корни,
+корень диска и reparse chain не допускаются. Синтаксическая проверка метаданных вынесена
+из Data в Core для переиспользования без EF; имена вида CON .txt дополнительно запрещены.
+Уникальность/длины/soft-delete Files не изменены.
+
+Вход и обновление счётчиков/хеша объединены с аудитом одной SQL-транзакцией,
+без замены прежних репозиториев. Для реальных файловых мутаций общая граница
+метаданные + аудит + компенсация IO остаётся задачей 05. SQL/FS не атомарны:
+при регистрации rollback сохраняет физический GUID-каталог, но не создаёт User.
+Сироты не удаляются автоматически; committed User может безопасно повторить подготовку.
+Для ошибочного/неопределённого результата регистрации сначала проверяют вход.
+
+Проверены actual junction и hard link, traversal/absolute пути, чужие ID, разные
+GUID-каталоги, сбои SQL/аудита/каталога и сохранность sentinel-данных. Не реализованы
+handle-bound последующие CRUD и защита от всех гонок/прямого доступа одного Windows token.
+ACL не подменяются и не меняются; у альтернативного корня могут быть более широкие
+наследуемые права. Для B политика Windows ACL будет дополнительной, app User != Windows User.
+
+Миграция этапа 04 добавляет только Users.FailedLoginWindowStartUtc для lockout.
+Files.LocationId/StorageLocations/grants, изменение unique (OwnerId, RelativePath),
+actor != owner при FileId и пересмотр audit scope **не выполнены**. Они нужны лишь после
+решения B. Вход и Session можно переиспользовать, policy/path/catalog/persistence потребуется
+расширить. Режим A остаётся единственным; этап 05.10 и B не начаты.
+
+Результаты и ограничения Stage04 — STAGE04_REPORT.md; реальный Windows DPI/полный
+интерактивный auth workflow ожидают ручной приёмки.

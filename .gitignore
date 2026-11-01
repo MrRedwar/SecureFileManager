@@ -38,6 +38,9 @@ appsettings.Development.local.json
 appsettings.local.json
 secrets.json
 
+# ===== Personal storage (default location is outside the repository) =====
+/Storage/
+
 # ===== Database =====
 *.db
 *.db-shm

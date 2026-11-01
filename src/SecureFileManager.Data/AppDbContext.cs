@@ -132,15 +132,6 @@ internal sealed class PersistenceValidationException : Exception;
 // Metadata syntax only: physical paths/reparse-point checks belong to stage 04/05 services.
 internal static class MetadataPath
 {
-    public static bool IsValid(string? path) => path is { Length: > 0 and <= 400 } &&
-        path.Split('/').All(IsNameValid);
-
-    public static bool IsNameValid(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name) || name.Length > 255 || name is "." or ".." ||
-            name.EndsWith('.') || name.EndsWith(' ') || name.Any(c => c < 32 || "<>:\"/\\|?*".Contains(c))) return false;
-        var stem = name.Split('.')[0];
-        return !new[] { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" }
-            .Contains(stem, StringComparer.OrdinalIgnoreCase);
-    }
+    public static bool IsValid(string? path) => SecureFileManager.Core.Security.RelativePathSyntax.IsValid(path);
+    public static bool IsNameValid(string? name) => SecureFileManager.Core.Security.RelativePathSyntax.IsNameValid(name);
 }

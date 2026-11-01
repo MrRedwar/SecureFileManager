@@ -19,28 +19,28 @@
   </StackPanel>
   <Border Grid.ColumnSpan="4" BorderBrush="{DynamicResource Brush.Gold500}" BorderThickness="0,0,0,1" IsHitTestVisible="False"/>
  </Grid>
- <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="232"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+ <Grid Grid.Row="1" IsEnabled="{Binding IsAuthenticated}"><Grid.ColumnDefinitions><ColumnDefinition Width="232"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
  <Grid Background="{DynamicResource Brush.Stone}"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <ListBox ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection, Mode=TwoWay}" Background="Transparent" BorderThickness="0" Padding="0,14,0,0" ItemContainerStyle="{StaticResource NavigationItem}" AutomationProperties.Name="Разделы приложения">
   <ListBox.ItemTemplate><DataTemplate><StackPanel Orientation="Horizontal"><Image Source="{Binding IconKey, Converter={StaticResource ResourceKey}}" Width="32" Height="32" Stretch="Uniform" Margin="0,0,14,0"/><TextBlock Text="{Binding Title}" FontSize="16" VerticalAlignment="Center"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
   <Image Grid.Row="1" Source="{StaticResource Art.Anubis}" Stretch="Uniform" MaxHeight="300" Margin="16,8,16,4" VerticalAlignment="Bottom" IsHitTestVisible="False"/>
-  <Border Grid.Row="2" BorderBrush="{DynamicResource Brush.Gold500}" BorderThickness="0,1,0,0" Margin="16,0" Padding="0,16"><StackPanel Orientation="Horizontal"><Image Source="{StaticResource Icon.User}" Width="30" Height="30" Margin="0,0,10,0"/><StackPanel><TextBlock Text="Текущий пользователь" FontSize="11" Foreground="{DynamicResource Brush.Gold200}"/><TextBlock Text="Не авторизован" Foreground="{DynamicResource Brush.TextOnDark}" Margin="0,4,0,0"/></StackPanel></StackPanel></Border>
+  <Border Grid.Row="2" BorderBrush="{DynamicResource Brush.Gold500}" BorderThickness="0,1,0,0" Margin="16,0" Padding="0,16"><StackPanel Orientation="Horizontal"><Image Source="{StaticResource Icon.User}" Width="30" Height="30" Margin="0,0,10,0"/><StackPanel><TextBlock Text="Текущий пользователь" FontSize="11" Foreground="{DynamicResource Brush.Gold200}"/><TextBlock Text="{Binding SessionStatus}" MaxWidth="150" TextTrimming="CharacterEllipsis" ToolTip="{Binding SessionStatus}" Foreground="{DynamicResource Brush.TextOnDark}" Margin="0,4,0,0"/></StackPanel></StackPanel></Border>
  </Grid>
  <Border Grid.Column="1" Background="{DynamicResource Brush.Sand100}" CornerRadius="8,0,0,0" BorderBrush="{DynamicResource Brush.Gold200}" BorderThickness="1,1,0,0">
  <Grid Background="{DynamicResource Brush.Papyrus}" Margin="0"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
   <Grid Margin="24,22,24,20"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <Grid Margin="0,0,16,0"><Grid.ColumnDefinitions><ColumnDefinition Width="52"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Source="{Binding SelectedSection.IconKey, Converter={StaticResource ResourceKey}}" Width="40" Height="40" VerticalAlignment="Top"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding SelectedSection.Title}" Style="{StaticResource SectionHeading}"/><TextBlock Text="{Binding SelectedSection.Description}" Style="{StaticResource MutedText}" Margin="0,5,0,0"/></StackPanel></Grid>
    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-    <Border Style="{StaticResource Card}" Width="142" Padding="12" Margin="0,0,10,0"><StackPanel><TextBlock Text="Хранилище" FontWeight="SemiBold"/><TextBlock Text="Недоступно до входа" Style="{StaticResource MutedText}" Margin="0,6,0,0"/></StackPanel></Border>
+    <Border Style="{StaticResource Card}" Width="142" Padding="12" Margin="0,0,10,0"><StackPanel><TextBlock Text="Хранилище" FontWeight="SemiBold"/><TextBlock Text="{Binding StorageStatus}" Style="{StaticResource MutedText}" Margin="0,6,0,0"/></StackPanel></Border>
     <Border Style="{StaticResource Card}" Width="142" Padding="12"><StackPanel><TextBlock Text="Аудит" FontWeight="SemiBold"/><TextBlock Text="Просмотр недоступен" Style="{StaticResource MutedText}" Margin="0,6,0,0"/></StackPanel></Border>
    </StackPanel>
   </Grid>
   <ContentControl Grid.Row="1" Content="{Binding SelectedSection}" Margin="24,0,24,20" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
  </Grid></Border></Grid>
  <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="232"/><ColumnDefinition Width="*"/><ColumnDefinition Width="240"/></Grid.ColumnDefinitions>
-  <TextBlock Text="ХРАМОВЫЙ АРХИВ" Foreground="{DynamicResource Brush.Gold200}" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+  <Button Grid.Column="0" Content="Выйти" Command="{Binding LogoutCommand}" Margin="20,5" MinHeight="0" Height="34" ToolTip="Завершить текущий сеанс" AutomationProperties.Name="Выйти"/>
   <Border Grid.Column="1" Grid.ColumnSpan="2" Background="{DynamicResource Brush.Sand100}" BorderBrush="{DynamicResource Brush.Gold200}" BorderThickness="1,1,0,0"/>
-  <TextBlock Grid.Column="1" Text="{Binding SelectedSection.Title, StringFormat=Раздел: {0}  ·  Не авторизован}" Style="{StaticResource MutedText}" Margin="24,0,12,0" VerticalAlignment="Center"/>
+  <TextBlock Grid.Column="1" Style="{StaticResource MutedText}" Margin="24,0,12,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"><TextBlock.Text><MultiBinding StringFormat="Раздел: {0}  ·  {1}"><Binding Path="SelectedSection.Title"/><Binding Path="SessionStatus"/></MultiBinding></TextBlock.Text></TextBlock>
   <Image Grid.Column="2" Source="{StaticResource Art.Footer}" Stretch="Uniform" Margin="12,5,18,5" IsHitTestVisible="False"/>
  </Grid>
  </Grid></Border>

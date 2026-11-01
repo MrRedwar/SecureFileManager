@@ -8,5 +8,6 @@ public sealed class User
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public bool IsActive { get; set; } = true;
     public int FailedLoginCount { get; set; }
+    public DateTime? FailedLoginWindowStartUtc { get; set; }
     public DateTime? LockoutUntilUtc { get; set; }
 }

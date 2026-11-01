@@ -15,6 +15,8 @@ public static class DataServiceCollectionExtensions
         services.AddTransient<IUserRepository, UserRepository>();
         services.AddTransient<IFileRepository, FileRepository>();
         services.AddTransient<IOperationRepository, OperationRepository>();
+        services.AddSingleton<IIdentityStore, SecureFileManager.Data.Identity.IdentityStore>();
+        services.AddSingleton<IDatabaseConnectionCheck, SecureFileManager.Data.Identity.DatabaseConnectionCheck>();
         return services;
     }
 }

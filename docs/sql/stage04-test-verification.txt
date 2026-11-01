@@ -1,0 +1,17 @@
+IsolatedTestDatabase
+--------------------
+SecureFileManagerTests_40b6d9ba82af4e82931a07f373c75bc1
+TestUsers TestFiles TestOperations
+--------- --------- --------------
+13 1 56
+OperationType Result EventCount
+------------- ------ ----------
+ACCESS_DENIED Denied 11
+DIRECTORY_CREATED Success 13
+LOGIN_FAILED Failed 22
+LOGIN_SUCCESS Success 8
+LOGOUT Success 1
+OPERATION_FAILED Failed 1
+UnknownLoginEventsWithNullUserAndFile
+-------------------------------------
+1

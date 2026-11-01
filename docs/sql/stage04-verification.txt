@@ -1,0 +1,22 @@
+MigrationId ProductVersion
+----------- --------------
+20261101094955_InitialCreate 9.0.22
+20261101122237_AddLoginFailureWindow 9.0.22
+name DataType is_nullable
+---- -------- -----------
+FailedLoginWindowStartUtc datetime2 1
+UsersCount FilesCount OperationsCount
+---------- ---------- ---------------
+0 0 0
+encrypt_option
+--------------
+TRUE
+Id Username IsActive CreatedAtUtc FailedLoginCount FailedLoginWindowStartUtc LockoutUntilUtc PasswordStorage
+-- -------- -------- ------------ ---------------- ------------------------- --------------- ---------------
+Id UserId ActorNameSnapshot FileId OccurredAtUtc OperationType Result Details
+-- ------ ----------------- ------ ------------- ------------- ------ -------
+name delete_referential_action_desc
+---- ------------------------------
+FK_Files_Users_OwnerId NO_ACTION
+FK_Operations_Files_FileId NO_ACTION
+FK_Operations_Users_UserId NO_ACTION

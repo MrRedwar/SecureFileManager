@@ -526,3 +526,76 @@ Restore/build/test, SQL-команды и GUI в этом этапе не зап
 этапа 04 для A с описанными границами; B потребует будущей модели расположений/прав,
 новых миграций и отдельных тестов. Этап 04 не начат. Git-коммит не создан.
 Следующий шаг — этап 04 только после отдельного разрешения пользователя.
+
+
+## 2026-11-01 — Этап 04: реализация и автоматическая проверка
+
+Исходное состояние чистое, HEAD 60aa75b (3.5 etap). Изучены актуальные AGENTS,
+TECHNICAL_SPEC, DESIGN_SPEC, TASKS, STORAGE_ARCHITECTURE, DECISIONS, PROGRESS,
+PERSISTENCE, concept/ASSETS_README; существующие Core/Data/Wpf/Tests, DI и миграции.
+Пользователь явно разрешил этап 04; этап 05/B не начинались, Git-коммита нет.
+
+Реализованы 04.01–04.06: PBKDF2 IdentityV3 с солью/rehash, полноценная регистрация,
+вход и sliding lockout 5/15/15, транзакционный обязательный SQL-аудит, read-only Session,
+выход и очистка VM, GUID storage/политика ownership/проверка физических путей.
+Добавлены египетские формы входа/регистрации, async/busy команды, PasswordBox,
+стартовая проверка SQL и повтор. Главное окно/шесть разделов сохранены.
+
+Новый пакет Core Microsoft.Extensions.Identity.Core 9.0.22 соответствует текущему
+.NET 9, нужен для штатного PasswordHasher; Core не получил EF/WPF/SQL.
+Новая миграция 20261101122237_AddLoginFailureWindow добавляет единственную nullable
+колонку Users.FailedLoginWindowStartUtc. Применена к существующей рабочей БД после
+проверки истории/состояния; initial migration, FK/индексы, Files/Operations не изменены.
+Users/Files/Operations до/после 0/0/0, encrypt_option TRUE. Тестовых аккаунтов в рабочей
+БД нет. Прежний Production TLS guard сохранён, секреты/локальная конфигурация не добавлены.
+
+Проверки в Windows:
+- dotnet restore — успешно.
+- dotnet build SecureFileManager.sln -c Debug — успешно, 0 warnings/errors.
+- dotnet test SecureFileManager.sln -c Debug с SFM_RUN_SQL_TESTS=1,
+  SFM_ENVIRONMENT=Development — 40/40, 0 skipped (TRX stage04.trx).
+- После уточнения UI fixture WpfShellTests повторно 1/1 (stage04-wpf.trx).
+- dotnet ef migrations has-pending-model-changes (Data/startup Data) — изменений нет.
+- SQL read-only: обе миграции/новая колонка/TLS/сохранность рабочей базы подтверждены.
+- Изолированная SecureFileManagerTests_40b6d9ba82af4e82931a07f373c75bc1:
+  13 тестовых Users, 1 Files, 56 Operations; есть все security-event типы и NULL UserId/FileId.
+  База и временные каталоги оставлены для анализа; DROP/EnsureDeleted/recursive delete нет.
+
+Тесты подтвердили CI/concurrent регистрацию, hash salt/format/rehash, валидацию,
+неверный/неизвестный/неактивный вход, точное sliding window и истечение lockout,
+конкурентные счётчики, смену двух пользователей/очистку VM, разные корни, чужие ID,
+traversal/absolute, фактическую NTFS junction/hard link, аудит/rollback SQL, каталог-сбой,
+недоступную БД и сохранность sentinel-файлов. Старые 18 тестов сохранены.
+При недоступном аудите logout всё равно очищает Session, не заявляя успешную запись.
+
+Wpf.exe действительно запущен; UI Automation подтвердила AuthenticationWindow,
+PasswordBox и успешный статус стартового SQL-подключения. Проверочный процесс остановлен,
+реальные аккаунты/пароли через GUI не вводились. WpfShellTests отрисовал обе формы,
+переключил шесть разделов, проверил 18 ресурсов и отсутствие DataBinding errors;
+сохранены 22 RenderTargetBitmap PNG в screenshots/stage04. Это не desktop-скриншоты.
+UI fixture содержит только явно тестовую сессию и пустые таблицы.
+Desktop capture: window capture timed out; ввод: coordinate input geometry is unavailable.
+Настоящий DPI Windows, системные кнопки/клавиатура и полный GUI A → logout → B не приняты.
+
+Первый прогон остановлен из-за захвата чужого Application Dispatcher в VM; исправлен
+захват собственного dispatcher, после этого прогоны успешны. Smoke-exe однажды удерживал
+apphost при сборке; остановлен только свой экземпляр, финальная сборка успешна.
+Гонки FS, наследуемые ACL/прямой доступ одним Windows пользователем и orphan GUID после
+SQL rollback задокументированы, не выданы за полную OS-изоляцию.
+
+Обновлены DECISIONS/STORAGE_ARCHITECTURE/PERSISTENCE, создан STAGE04_REPORT с полным
+перечнем файлов, STAGE04_MANUAL_TEST, SQL-миграция/проверки/вывод и README рендеров.
+04.01–04.06 отмечены выполненными. 04.07 оставлен открытым только для ручной GUI-приёмки;
+автоматическая часть полностью пройдена. Общий статус этапа: **Частично**.
+Следующий шаг: ручная приёмка 04.07 по инструкции, затем фиксация результата.
+Этап 05 и Git-коммит без отдельного разрешения запрещены.
+
+Финальная проверка граничных случаев: logout с заранее отменённым токеном также
+очищает Session, а корень диска/путь с нормализацией к корню диска отклоняется
+отдельным StorageConfigurationTests. Окончательный полный набор: 40/40, 0 skipped.
+
+Дополнительно проверен видимый интерактивный запуск (WindowStyle Normal) и активация
+окна: desktop capture снова вернул window capture timed out. Скрытый запуск не является
+единственной причиной ограничения; свой проверочный процесс остановлен без ввода данных.
+Финальные проверки Git: diff --check без ошибок, все 81 ссылки перечня файлов существуют,
+HEAD остался 60aa75b, локальная конфигурация и Storage игнорируются.

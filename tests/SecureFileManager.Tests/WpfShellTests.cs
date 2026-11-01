@@ -10,6 +10,8 @@ using System.Windows.Threading;
 using SecureFileManager.Wpf;
 using SecureFileManager.Wpf.ViewModels;
 using SecureFileManager.Wpf.Views;
+using SecureFileManager.Core.Interfaces;
+using SecureFileManager.Core.Results;
 
 namespace SecureFileManager.Tests;
 
@@ -42,7 +44,8 @@ public sealed class WpfShellTests
         var listener = new TextWriterTraceListener(trace);
         PresentationTraceSources.DataBindingSource.Listeners.Add(listener);
         PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
-        var model = new MainWindowViewModel();
+        // UI fixture only: protected shell layout, no real account/data or authentication bypass in App.
+        var model = new MainWindowViewModel(new(), new(), new(), new(), new(), new(), new RenderSession());
         var window = new MainWindow(model);
         window.ShowActivated = false;
         window.Left = -20000;
@@ -107,6 +110,7 @@ public sealed class WpfShellTests
             root.UpdateLayout();
             Assert.Contains(Descendants(root).OfType<TextBlock>(), text => text.IsVisible && text.Text == "Не удалось загрузить данные");
             model.SelectedSection.ErrorMessage = null;
+            CheckAuthentication(export);
             Assert.Empty(trace.ToString());
         }
         finally
@@ -117,6 +121,48 @@ public sealed class WpfShellTests
         }
     }
 
+    private static void CheckAuthentication(string? export)
+    {
+        var stub = new AuthenticationUiStub();
+        var model = new AuthenticationWindowViewModel(stub, stub);
+        var window = new AuthenticationWindow(model) { ShowActivated = false, Left = -20000, Top = -20000 };
+        try
+        {
+            window.Show();
+            foreach (var register in new[] { false, true })
+            {
+                if (register) model.ShowRegisterCommand.Execute(null); else model.ShowLoginCommand.Execute(null);
+                foreach (var size in new[] { new Size(640, 760), new Size(520, 600) })
+                {
+                    window.Width = size.Width; window.Height = size.Height;
+                    Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                    var root = (FrameworkElement)window.Content;
+                    root.UpdateLayout();
+                    Assert.Contains(Descendants(root), view => register ? view is RegisterView : view is LoginView);
+                    var boxes = Descendants(root).OfType<PasswordBox>().ToList();
+                    Assert.Equal(register ? 2 : 1, boxes.Count);
+                    Assert.All(boxes, box => { Assert.Empty(box.Password); Assert.Equal(128, box.MaxLength); Assert.True(box.Focusable); });
+                    Assert.Contains(Descendants(root).OfType<Button>(), button => button.IsDefault && button.IsEnabled);
+                    if (export is not null)
+                        foreach (var scale in new[] { 1.0, 1.5 })
+                            Export(root, size, scale, Path.Combine(export, $"{(register ? "register" : "login")}-{size.Width}x{size.Height}-{scale * 100:0}pct-render.png"));
+                }
+            }
+        }
+        finally { window.Close(); }
+    }
+    private sealed class AuthenticationUiStub : IAuthenticationService, IRegistrationService
+    {
+        public Task<AuthOutcome> LoginAsync(string username, string password, CancellationToken ct = default) => Task.FromResult(AuthOutcome.Invalid());
+        public Task<AuthOutcome> LogoutAsync(CancellationToken ct = default) => Task.FromResult(AuthOutcome.Ok());
+        public Task<AuthOutcome> RegisterAsync(string username, string password, string confirmation, CancellationToken ct = default) => Task.FromResult(new AuthOutcome(AuthStatus.Validation, "UI test only"));
+    }
+    private sealed class RenderSession : IUserSession
+    {
+        public SessionIdentity? Current { get; } = new(Guid.NewGuid(), "ТЕСТ_визуальный_рендер");
+        public long Revision => 1;
+        public event EventHandler? Changed { add { } remove { } }
+    }
     private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
     {
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)

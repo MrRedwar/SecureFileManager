@@ -105,3 +105,31 @@ SQL Express, Windows Authentication, TLS. До миграции проверяе
 База не удаляется: остаётся схема и история миграции для проверки.
 Права SQL на создание базы нужны только для миграций/этих тестов.
 Проверка недоступной БД выполняет лишь SELECT и проверяет безопасный результат.
+
+
+## Актуализация этапа 04 (01.11.2026)
+
+Новая миграция 20261101122237_AddLoginFailureWindow добавляет в Users nullable datetime2
+FailedLoginWindowStartUtc. UTC-конвертер/валидация AppDbContext распространяются и на это
+поле. В SecureFileManagerDB теперь обе миграции; рабочие таблицы после применения
+остались пустыми (0/0/0). InitialCreate/FK/Files/Operations/индексы не изменены.
+SQL — docs/sql/stage04-migration.sql, read-only проверка — verify-stage04.sql.
+Миграции не запускаются автоматически из WPF; безопасные команды остаются прежними,
+для существующей базы предварительно проверяются history/sys.columns и backup.
+Ручная SSMS-приёмка этапа 02 ранее подтверждена пользователем; новая GUI-приёмка 04 открыта.
+
+Core содержит IIdentityStore/IIdentityTransaction — узкий контракт транзакций identity.
+Реализация Data/Identity/IdentityStore сериализует регистрацию/вход, атомарно сохраняет
+счётчики/хеш и Operations через прежний OperationRepository на общей SQL connection/
+transaction. Отдельные публичные вызовы прежних репозиториев общей транзакции сами
+по себе не получают. Координация будущих файловых операций остаётся на этапе 05.
+
+Проверка синтаксиса MetadataPath делегирует Core/Security/RelativePathSyntax; физические
+проверки выполняются IUserStorageService/IPathPolicy, не репозиториями. ownerId должен
+поступать из текущей IUserSession. Прикладные сервисы проверяют активность/ownership/
+Revision и не считают repository owner-filter полноценной аутентификацией.
+
+Security SQL-тесты коммитят данные только в уникальной новой тестовой БД fixture,
+старые persistence-тесты сохраняют rollback транзакций. Fixture ничего не удаляет;
+после security-тестов база содержит явно тестовые аккаунты и события и не считается пустой.
+Фактические агрегаты: stage04-test-verification.txt. Вывод паролей/хешей запрещён.
