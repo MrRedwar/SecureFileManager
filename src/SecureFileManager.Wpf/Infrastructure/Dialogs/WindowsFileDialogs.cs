@@ -27,6 +27,8 @@ public sealed class WindowsFileDialogs(IFileService files, IUserSession session)
         { MessageBoxResult.Yes => true, MessageBoxResult.No => false, _ => null };
     public void OpenEditor(TextDocument document)
     {
+        var existing = _editors.FirstOrDefault(window => ((TextEditorViewModel)window.DataContext).DocumentId == document.Id);
+        if (existing is not null) { existing.Activate(); return; }
         var model = new TextEditorViewModel(files, session, this, document);
         var window = new TextEditorWindow(model) { Owner = Application.Current.MainWindow };
         _editors.Add(window); window.Closed += (_, _) => { _editors.Remove(window); model.Dispose(); };

@@ -1,6 +1,15 @@
+using SecureFileManager.Core.Files;
+using SecureFileManager.Core.Interfaces;
 namespace SecureFileManager.Wpf.ViewModels;
-public sealed class FormatsViewModel() : SectionViewModel("JSON / XML", "Документы, структура и проверка форматов", "Icon.JsonXml")
+// Reuses the browser/editor; holds no independent document content.
+public sealed class FormatsViewModel : SectionViewModel
 {
-    public string FileLabel => "Файл не выбран";
-    public string Content => string.Empty;
+    public FilesViewModel Browser { get; }
+    public FormatsViewModel(IFileService? files = null, IFileDialogs? dialogs = null)
+        : base("JSON / XML", "Выберите документ личного хранилища для общего редактора", "Icon.JsonXml")
+    { Browser = new(files, dialogs, structuredOnly: true); }
+    public override Task ActivateAsync() => Browser.ActivateAsync();
+    public override void ResetUserState() { base.ResetUserState(); Browser.ResetUserState(); }
+    public override void UpdateSession(SessionIdentity? identity)
+    { base.UpdateSession(identity); Browser.UpdateSession(identity); }
 }

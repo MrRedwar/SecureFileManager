@@ -155,6 +155,8 @@ public sealed class WindowsFileStorage(PersonalStorage roots) : IPhysicalFileSto
                 folder = (File.GetAttributes(full) & FileAttributes.Directory) != 0;
                 original = Object(full, folder, true);
                 if (folder && Directory.EnumerateFileSystemEntries(full).Any()) throw new FileCommandException(FileStatus.Conflict);
+                if (kind == ChangeKind.Save && SafeNativeFile.Information(original).Length > FileRules.TextLimit)
+                    throw new FileCommandException(FileStatus.LimitExceeded);
                 before = SafeNativeFile.Fingerprint(original);
                 if (kind == ChangeKind.Save && (folder || expected != before)) throw new FileCommandException(FileStatus.Conflict);
             }
@@ -178,8 +180,12 @@ public sealed class WindowsFileStorage(PersonalStorage roots) : IPhysicalFileSto
                         else
                         {
                             var encoder = new UTF8Encoding(false, true);
-                            if (text is { Length: > FileRules.TextLimit } || encoder.GetByteCount(text ?? "") > FileRules.TextLimit)
+                            var bom = new byte[3];
+                            var preserveBom = original is not null && RandomAccess.Read(original, bom, 0) == 3 &&
+                                bom.AsSpan().SequenceEqual(new byte[] { 0xEF, 0xBB, 0xBF });
+                            if (text is { Length: > FileRules.TextLimit } || encoder.GetByteCount(text ?? "") + (preserveBom ? 3 : 0) > FileRules.TextLimit)
                                 throw new FileCommandException(FileStatus.LimitExceeded);
+                            if (preserveBom) output.Write(bom);
                             output.Write(encoder.GetBytes(text ?? ""));
                         }
                         output.Flush(true);

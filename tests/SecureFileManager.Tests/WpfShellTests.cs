@@ -157,6 +157,7 @@ public sealed class WpfShellTests
             filesModel.ResetUserState();
             Assert.Empty(filesModel.Items); Assert.Empty(filesModel.SearchText);
             CheckFileDialogsAndImport();
+            CheckStructuredBrowserAndEditor(export);
             CheckAuthentication(export);
             Assert.Empty(trace.ToString());
         }
@@ -242,6 +243,40 @@ public sealed class WpfShellTests
         }
         finally { window.Close(); }
     }
+    private static void CheckStructuredBrowserAndEditor(string? export)
+    {
+        var session = new RenderSession(); var dialogs = new FileUiDialogs(); var service = new FileUiService();
+        var formats = new FormatsViewModel(service, dialogs); formats.UpdateSession(session.Current);
+        foreach (var name in new[] { "test.txt", "test.json", "test.xml" })
+            service.CreateAsync("", name, false).GetAwaiter().GetResult();
+        service.CreateAsync("", "folder", true).GetAwaiter().GetResult();
+        formats.ActivateAsync().GetAwaiter().GetResult();
+        Assert.Equal(new[] { "folder", "test.json", "test.xml" }, formats.Browser.View.Cast<FileListItem>().Select(x => x.Name));
+        Assert.Same(session.Current, formats.Browser.CurrentUser);
+        formats.UpdateSession(null); Assert.Empty(formats.Browser.Items); Assert.Null(formats.Browser.CurrentUser);
+        foreach (var name in new[] { "TEST-editor.txt", "TEST-editor.json", "TEST-editor.xml" })
+        {
+            var format = DocumentValidator.Format(name);
+            var text = format == DocumentFormat.Json ? "{\n  \"имя\": \"ТЕСТ\"\n}" : format == DocumentFormat.Xml ? "<root>\n  ТЕСТ\n</root>" : "ТЕСТ\nстрока";
+            using var model = new TextEditorViewModel(service, session, dialogs, new(Guid.NewGuid(), name, text, "UI-only"));
+            var window = new TextEditorWindow(model);
+            var root = (FrameworkElement)window.Content;
+            foreach (var size in new[] { new Size(860, 660), new Size(600, 440) })
+            {
+                root.Width = size.Width; root.Height = size.Height;
+                root.Measure(size); root.Arrange(new Rect(size)); root.UpdateLayout();
+                var input = Descendants(root).OfType<TextBox>().Single();
+                Assert.Equal(text, input.Text); Assert.False(model.IsDirty); Assert.True(input.IsEnabled);
+                Assert.Equal(format != DocumentFormat.Txt, model.ValidateCommand.CanExecute(null));
+                input.Text += " "; input.GetBindingExpression(TextBox.TextProperty)!.UpdateSource();
+                Assert.True(model.IsDirty); Assert.Contains("*", model.Title);
+                Assert.True(model.SaveCommand.CanExecute(null));
+                if (export is not null) Export(root, size, 1.5, Path.Combine(export, $"editor-{format}-{size.Width}x{size.Height}-150pct-render.png"));
+                model.Text = text; root.UpdateLayout();
+            }
+            Assert.True(window.TryCloseAsync().GetAwaiter().GetResult());
+        }
+    }
     private sealed class FileUiService : IFileService
     {
         public Guid Owner { get; set; }
@@ -260,6 +295,8 @@ public sealed class WpfShellTests
         }
         public Task<FileResult<bool>> CreateAsync(string directory, string name, bool folder, CancellationToken ct = default) => Add(name, folder);
         public Task<FileResult<TextDocument>> ReadAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<FileResult<TextDocument>> ReloadAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<FileResult<DocumentValidation>> ValidateAsync(Guid id, string text, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<FileResult<bool>> SaveAsync(Guid id, string text, string version, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<FileResult<bool>> DeleteAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<FileResult<bool>> SynchronizeAsync(string relativePath, CancellationToken ct = default) => throw new NotSupportedException();

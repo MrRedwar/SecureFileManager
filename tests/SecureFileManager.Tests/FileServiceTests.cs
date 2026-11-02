@@ -14,7 +14,7 @@ using Xunit.Abstractions;
 namespace SecureFileManager.Tests;
 
 [Collection("SQL Server")]
-public sealed class FileServiceTests(SqlDatabaseFixture database, ITestOutputHelper output)
+public sealed partial class FileServiceTests(SqlDatabaseFixture database, ITestOutputHelper output)
 {
     private sealed class Factory(string connection) : IDbContextFactory<AppDbContext>
     { public AppDbContext CreateDbContext() => new(new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(connection).Options); }

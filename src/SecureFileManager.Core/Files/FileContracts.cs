@@ -3,11 +3,11 @@ using SecureFileManager.Core.Interfaces;
 
 namespace SecureFileManager.Core.Files;
 
-public enum FileStatus { Success, Denied, Invalid, NotFound, Conflict, Unavailable, DatabaseUnavailable, RecoveryRequired, Unsupported, LimitExceeded }
-public sealed record FileResult<T>(FileStatus Status, T? Value = default)
+public enum FileStatus { Success, Denied, Invalid, NotFound, Conflict, Unavailable, DatabaseUnavailable, RecoveryRequired, Unsupported, LimitExceeded, InvalidDocument }
+public sealed record FileResult<T>(FileStatus Status, T? Value = default, DocumentValidation? Validation = null)
 {
     public bool Succeeded => Status == FileStatus.Success;
-    public string Message => Status switch
+    public string Message => Validation?.Description ?? (Status switch
     {
         FileStatus.Success => "",
         FileStatus.Denied => "Доступ запрещён. Проверьте действующий сеанс и владельца объекта.",
@@ -16,20 +16,28 @@ public sealed record FileResult<T>(FileStatus Status, T? Value = default)
         FileStatus.Conflict => "Объект уже существует, занят или изменён другим процессом. Обновите список.",
         FileStatus.DatabaseUnavailable => "База данных или обязательный аудит недоступны. Операция не подтверждена.",
         FileStatus.RecoveryRequired => "Есть незавершённая операция. Нажмите «Восстановить операции». Данные сохранены для проверки.",
-        FileStatus.Unsupported => "Поддерживается только TXT в UTF-8. Для остальных файлов доступны сведения.",
-        FileStatus.LimitExceeded => "Превышен лимит: TXT — 10 МиБ, импорт — 100 МиБ, список — 10000 объектов.",
+        FileStatus.Unsupported => "Поддерживаются TXT, JSON и XML в строгой UTF-8. Проверьте формат и кодировку файла.",
+        FileStatus.LimitExceeded => "Превышен лимит: текст — 10 МиБ, импорт — 100 МиБ, список — 10000 объектов.",
+        FileStatus.InvalidDocument => "Документ некорректен. Исправьте ошибки перед сохранением.",
         _ => "Хранилище недоступно. Проверьте накопитель, свободное место и права доступа."
-    };
+    });
 }
-public sealed class FileCommandException(FileStatus status) : Exception("File operation rejected.")
-{ public FileStatus Status { get; } = status; }
+public sealed class FileCommandException(FileStatus status, DocumentValidation? validation = null, DocumentFormat? format = null) : Exception("File operation rejected.")
+{
+    public FileStatus Status { get; } = status;
+    public DocumentValidation? Validation { get; } = validation;
+    public DocumentFormat? Format { get; } = format;
+}
 public sealed class FileStoreException(bool uncertain) : Exception("File transaction unavailable.")
 { public bool CommitUncertain { get; } = uncertain; }
 public enum EntryState { Managed, Untracked, Missing, Changed, Unsafe }
 public sealed record PhysicalEntry(string RelativePath, string Name, FileKind Kind, long SizeBytes, DateTime CreatedUtc, DateTime ModifiedUtc, bool IsSafe = true);
 public sealed record FileEntry(Guid? Id, string RelativePath, string Name, FileKind Kind, long SizeBytes, DateTime ModifiedUtc, EntryState State);
 public sealed record TextDocument(Guid Id, string Name, string Content, string Version)
-{ public override string ToString() => "[TXT document content omitted]"; }
+{
+    public DocumentValidation? Validation { get; init; }
+    public override string ToString() => "[Text document content omitted]";
+}
 public sealed class ImportSelection(string sourcePath, string name)
 {
     public string SourcePath { get; } = sourcePath;
@@ -49,7 +57,9 @@ public interface IFileService
     Task<FileResult<IReadOnlyList<FileEntry>>> ListAsync(string directory, CancellationToken ct = default);
     Task<FileResult<bool>> CreateAsync(string directory, string name, bool folder, CancellationToken ct = default);
     Task<FileResult<TextDocument>> ReadAsync(Guid id, CancellationToken ct = default);
+    Task<FileResult<TextDocument>> ReloadAsync(Guid id, CancellationToken ct = default);
     Task<FileResult<bool>> SaveAsync(Guid id, string text, string version, CancellationToken ct = default);
+    Task<FileResult<DocumentValidation>> ValidateAsync(Guid id, string text, CancellationToken ct = default);
     Task<FileResult<bool>> DeleteAsync(Guid id, CancellationToken ct = default);
     Task<FileResult<bool>> SynchronizeAsync(string relativePath, CancellationToken ct = default);
     Task<FileResult<bool>> ImportAsync(string directory, ImportSelection source, CancellationToken ct = default);
@@ -103,8 +113,7 @@ public static class FileRules
         Path(path); return path;
     }
     public static string Parent(string path) => path.Contains('/') ? path[..path.LastIndexOf('/')] : "";
-    public static void Txt(string name)
-    { if (!name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)) throw new FileCommandException(FileStatus.Unsupported); }
+    public static void Text(string name) => _ = DocumentValidator.Format(name);
 }
 public static class FileDisplay
 {

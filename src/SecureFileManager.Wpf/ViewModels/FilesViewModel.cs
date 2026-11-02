@@ -69,14 +69,16 @@ public sealed class FilesViewModel : SectionViewModel
     public ICommand SynchronizeCommand { get; }
     public ICommand RecoverCommand { get; }
     private bool Ready => _files is not null && CurrentUser is not null && !IsLoading;
-    public FilesViewModel(IFileService? files = null, IFileDialogs? dialogs = null)
+    public FilesViewModel(IFileService? files = null, IFileDialogs? dialogs = null, bool structuredOnly = false)
         : base("Мои файлы", "Личное пространство для ваших документов", "Icon.Files")
     {
         _files = files; _dialogs = dialogs; View = CollectionViewSource.GetDefaultView(Items);
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
         _dispatcher = dispatcher?.CheckAccess() == true ? dispatcher : null;
         if (_files is not null) _files.Changed += OnFilesChanged;
-        View.Filter = value => value is FileListItem item && item.Name.Contains(_search, StringComparison.CurrentCultureIgnoreCase);
+        View.Filter = value => value is FileListItem item && item.Name.Contains(_search, StringComparison.CurrentCultureIgnoreCase) &&
+            (!structuredOnly || item.Entry?.Kind == FileKind.Directory || item.Name.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ||
+             item.Name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase));
         RefreshCommand = new AsyncRelayCommand(_ => LoadAsync(_directory), () => Ready);
         ParentCommand = new AsyncRelayCommand(_ => LoadAsync(FileRules.Parent(_directory)), () => Ready && _directory != "");
         RootCommand = new AsyncRelayCommand(_ => LoadAsync(""), () => Ready);
@@ -189,8 +191,8 @@ public sealed class FilesViewModel : SectionViewModel
         if (entry is null) return;
         if (entry.Id is null) { _dialogs?.Information("Объект не учтён в БД. Сначала явно выполните «Сверить»."); return; }
         if (entry.Kind == FileKind.Directory) { await LoadAsync(entry.RelativePath); return; }
-        if (!entry.Name.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
-        { _dialogs?.Information($"{entry.Name}\n{FileDisplay.Bytes(entry.SizeBytes)}\nПоддерживается чтение TXT в UTF-8; другие форматы пока не открываются."); return; }
+        if (!DocumentValidator.Supports(entry.Name))
+        { _dialogs?.Information($"{entry.Name}\n{FileDisplay.Bytes(entry.SizeBytes)}\nРедактор поддерживает TXT, JSON и XML в UTF-8."); return; }
         await Busy(async generation =>
         {
             var result = await _files!.ReadAsync(entry.Id.Value);

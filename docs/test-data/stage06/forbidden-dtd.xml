@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE test [<!ENTITY external SYSTEM "file:///C:/SFM_STAGE06_NONEXISTENT_SENTINEL.txt">]>
+<test>&external;</test>

@@ -40,10 +40,11 @@ public sealed class FileService(IUserSession session, IFileAccessPolicy access, 
         if (result.Status == RepositoryStatus.NotFound) throw new FileCommandException(FileStatus.Denied);
         return Require(result);
     }
-    private async Task Audit(Context c, OperationType type, string code, Guid? file, string? path, Guid correlation, CancellationToken ct)
+    private async Task Audit(Context c, OperationType type, string code, Guid? file, string? path, Guid correlation, CancellationToken ct,
+        OperationResult result = OperationResult.Success)
     {
         Check(c);
-        var item = SecurityAudit.Create(clock.UtcNow, c.Actor, type, OperationResult.Success, code);
+        var item = SecurityAudit.Create(clock.UtcNow, c.Actor, type, result, code);
         item.FileId = file; item.TargetPathSnapshot = string.IsNullOrEmpty(path) ? null : path; item.CorrelationId = correlation;
         Require(await c.Work.Audit.AddAsync(item, ct));
     }
@@ -105,11 +106,18 @@ public sealed class FileService(IUserSession session, IFileAccessPolicy access, 
                 }
                 catch { status = FileStatus.RecoveryRequired; }
             }
-            try { await audit.RecordAsync(actor, status == FileStatus.Denied || status == FileStatus.Invalid ?
+            try
+            {
+                if (error is FileCommandException { Validation: { } invalid, Format: { } format } && format != DocumentFormat.Txt)
+                    if (!await audit.RecordAsync(actor, ValidationType(format), OperationResult.Failed, invalid.Code, CancellationToken.None))
+                        status = FileStatus.DatabaseUnavailable;
+                if (!await audit.RecordAsync(actor, status == FileStatus.Denied || status == FileStatus.Invalid ?
                 OperationType.ACCESS_DENIED : OperationType.OPERATION_FAILED,
                 status == FileStatus.Denied || status == FileStatus.Invalid ? OperationResult.Denied : OperationResult.Failed,
-                "FILE_COMMAND_" + status, CancellationToken.None); } catch { }
-            return new(status);
+                "FILE_COMMAND_" + status, CancellationToken.None)) status = FileStatus.DatabaseUnavailable;
+            }
+            catch { status = FileStatus.DatabaseUnavailable; }
+            return new(status, Validation: status == FileStatus.InvalidDocument ? (error as FileCommandException)?.Validation : null);
         }
         finally { context?.Space.Dispose(); _gate.Release(); }
     }
@@ -183,7 +191,11 @@ public sealed class FileService(IUserSession session, IFileAccessPolicy access, 
             if (kind == ChangeKind.Import && (name.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase) ||
                 name.EndsWith(".url", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".website", StringComparison.OrdinalIgnoreCase)))
                 throw new FileCommandException(FileStatus.Denied);
-            if (kind == ChangeKind.Create) FileRules.Txt(name);
+            if (kind == ChangeKind.Create)
+            {
+                FileRules.Text(name);
+                text = DocumentValidator.Format(name) switch { DocumentFormat.Json => "{}", DocumentFormat.Xml => "<document />", _ => "" };
+            }
             var existing = await c.Work.Files.GetByPathAsync(c.Actor.Id, path, token);
             if (existing.IsSuccess) throw new FileCommandException(FileStatus.Conflict);
             if (existing.Status != RepositoryStatus.NotFound) Require(existing);
@@ -196,21 +208,37 @@ public sealed class FileService(IUserSession session, IFileAccessPolicy access, 
                 "FILE_TX_" + kind, record.Id, path, c.Journal.Id, token);
             await TouchParents(c, path, token); return true;
         }, false, ct);
-    public Task<FileResult<TextDocument>> ReadAsync(Guid id, CancellationToken ct = default) => Run(async (c, token) =>
+    public Task<FileResult<TextDocument>> ReadAsync(Guid id, CancellationToken ct = default) => Read(id, false, ct);
+    public Task<FileResult<TextDocument>> ReloadAsync(Guid id, CancellationToken ct = default) => Read(id, true, ct);
+    private Task<FileResult<TextDocument>> Read(Guid id, bool reload, CancellationToken ct) => Run(async (c, token) =>
     {
         var record = await Record(c, id, token); FileRules.Path(record.RelativePath);
         if (record.Kind != FileKind.File) throw new FileCommandException(FileStatus.Unsupported);
-        FileRules.Txt(record.Name);
-        Match(record, await Task.Run(() => c.Space.Inspect(record.RelativePath), token));
+        FileRules.Text(record.Name);
+        if (!reload) Match(record, await Task.Run(() => c.Space.Inspect(record.RelativePath), token));
         var text = await Task.Run(() => c.Space.Read(record.RelativePath), token);
-        await Audit(c, OperationType.FILE_READ, "TXT_READ", record.Id, record.RelativePath, Guid.NewGuid(), token);
-        return new TextDocument(record.Id, record.Name, text.Content, text.Version + "|" + Convert.ToBase64String(record.RowVersion));
+        var validation = await Validate(c, record, text.Content, token);
+        if (validation.Prohibited) throw new FileCommandException(FileStatus.InvalidDocument, validation, DocumentValidator.Format(record.Name));
+        if (reload)
+        {
+            // Read and metadata refresh use the same workspace and SQL transaction.
+            var item = await Task.Run(() => c.Space.Inspect(record.RelativePath), token);
+            record.SizeBytes = item.SizeBytes; record.ModifiedAtUtc = item.ModifiedUtc;
+            record = Require(await c.Work.Files.UpdateAsync(record, token));
+            await Audit(c, OperationType.FILE_READ, "EDITOR_RELOADED", record.Id, record.RelativePath, Guid.NewGuid(), token);
+            c.MetadataChanged = true;
+        }
+        await Audit(c, OperationType.FILE_READ, "TEXT_READ", record.Id, record.RelativePath, Guid.NewGuid(), token);
+        return new TextDocument(record.Id, record.Name, text.Content, text.Version + "|" + Convert.ToBase64String(record.RowVersion)) { Validation = validation };
     }, false, ct);
     public Task<FileResult<bool>> SaveAsync(Guid id, string text, string version, CancellationToken ct = default) => Run(async (c, token) =>
     {
-        var record = await Record(c, id, token); FileRules.Path(record.RelativePath); FileRules.Txt(record.Name);
+        var record = await Record(c, id, token); FileRules.Path(record.RelativePath); FileRules.Text(record.Name);
         if (record.Kind != FileKind.File || !version.EndsWith("|" + Convert.ToBase64String(record.RowVersion), StringComparison.Ordinal))
             throw new FileCommandException(FileStatus.Conflict);
+        var validation = await Validate(c, record, text, token);
+        if (!validation.IsValid) throw new FileCommandException(validation.Code == "SIZE" ? FileStatus.LimitExceeded : FileStatus.InvalidDocument,
+            validation, DocumentValidator.Format(record.Name));
         Check(c);
         c.Journal = await Task.Run(() => c.Space.Stage(Guid.NewGuid(), ChangeKind.Save, record.RelativePath, text,
             version[..version.LastIndexOf('|')]), token);
@@ -220,6 +248,28 @@ public sealed class FileService(IUserSession session, IFileAccessPolicy access, 
         Require(await c.Work.Files.UpdateAsync(record, token));
         await Audit(c, OperationType.FILE_UPDATED, "FILE_TX_SAVE", record.Id, record.RelativePath, c.Journal.Id, token);
         await TouchParents(c, record.RelativePath, token); return true;
+    }, false, ct);
+    private static OperationType ValidationType(DocumentFormat format) => format == DocumentFormat.Json ? OperationType.JSON_VALIDATED : OperationType.XML_VALIDATED;
+    private async Task<DocumentValidation> Validate(Context c, FileRecord record, string text, CancellationToken ct)
+    {
+        var format = DocumentValidator.Format(record.Name);
+        var result = await Task.Run(() => DocumentValidator.Validate(format, text), ct);
+        if (format != DocumentFormat.Txt)
+        {
+            await Audit(c, ValidationType(format), result.Code, record.Id, record.RelativePath, Guid.NewGuid(), ct,
+                result.IsValid ? OperationResult.Success : OperationResult.Failed);
+            if (!result.IsValid)
+                await Audit(c, OperationType.OPERATION_FAILED, "DOCUMENT_" + result.Code, record.Id, record.RelativePath, Guid.NewGuid(), ct, OperationResult.Failed);
+        }
+        return result;
+    }
+    public Task<FileResult<DocumentValidation>> ValidateAsync(Guid id, string text, CancellationToken ct = default) => Run(async (c, token) =>
+    {
+        var record = await Record(c, id, token); FileRules.Path(record.RelativePath); FileRules.Text(record.Name);
+        if (record.Kind != FileKind.File) throw new FileCommandException(FileStatus.Unsupported);
+        // Validation is authorized against the actual stored object, not a UI-supplied extension/path.
+        await Task.Run(() => c.Space.Inspect(record.RelativePath), token);
+        return await Validate(c, record, text, token);
     }, false, ct);
     public Task<FileResult<bool>> DeleteAsync(Guid id, CancellationToken ct = default) => Run(async (c, token) =>
     {

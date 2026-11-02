@@ -438,3 +438,14 @@ lock и журналами незавершённых операций; она �
 actor==owner для аудита, отдельная авторизация внешних объектов с Windows ACL.
 Эти изменения и миграции сейчас не выполняются. Authentication/Session не зависят от
 StorageProvider, пользователи приложения не приравнены к Windows identities.
+
+## Этап 06: документы поверх существующего A
+
+FileService обслуживает TXT/JSON/XML одним протоколом SQL/FS этапа 05. DocumentValidator
+в Core только разбирает ограниченный текст и не выбирает физические пути/владельцев.
+ValidateAsync/ReloadAsync не принимают внешний owner/path, только owner-scoped FileId.
+Read/Save/Reload проходят прежние Session/Revision, активность SQL User, access и Windows handles.
+StorageRoot, Users/{GUID}, ссылки, зарезервированные имена и recovery-протокол сохранены.
+FilesView переиспользуется разделом JSON/XML, все документы открывает прежний координатор
+WindowsFileDialogs, исключающий дубликат окна по FileId. Данные документа не живут в FormatsViewModel.
+Ни B-locations/grants, ни новые таблицы/миграции не вводились. Подробности — STAGE06_REPORT.md.
