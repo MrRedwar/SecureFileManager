@@ -1,0 +1,11 @@
+<Window x:Class="SecureFileManager.Wpf.Views.NameDialog" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Style="{StaticResource DialogWindow}" Title="Создать объект" WindowStartupLocation="CenterOwner">
+ <StackPanel Margin="24" Width="420">
+  <TextBlock x:Name="Prompt" Style="{StaticResource CardHeading}" Margin="0,0,0,16"/>
+  <TextBox x:Name="NameInput" MaxLength="255" AutomationProperties.Name="Имя объекта" Margin="0,0,0,20"/>
+  <TextBlock Text="Допустимость имени и конфликт проверяются сервисом." Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,18"/>
+  <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+   <Button Content="Отмена" IsCancel="True"/><Button Content="Создать" IsDefault="True" Style="{StaticResource PrimaryButton}" Click="Accept"/>
+  </StackPanel>
+ </StackPanel>
+</Window>

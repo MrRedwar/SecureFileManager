@@ -10,6 +10,7 @@ public class SectionViewModel(string title, string description, string iconKey =
     public SessionIdentity? CurrentUser { get; private set; }
     public string SessionStatus => CurrentUser?.Username ?? "Не авторизован";
     public virtual void ResetUserState() { IsLoading = false; ErrorMessage = null; }
+    public virtual Task ActivateAsync() => Task.CompletedTask;
     public void UpdateSession(SessionIdentity? identity)
     { ResetUserState(); CurrentUser = identity; RaisePropertyChanged(nameof(CurrentUser)); RaisePropertyChanged(nameof(SessionStatus)); RaisePropertyChanged("Breadcrumb"); RaisePropertyChanged("StorageStatus"); RaisePropertyChanged("DatabaseStatus"); }
     public string UnavailableReason => "Действие станет доступно после реализации сервиса и входа в приложение.";

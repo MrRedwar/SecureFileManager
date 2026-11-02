@@ -412,3 +412,29 @@ StorageConfiguration находится в Wpf/Infrastructure/FileSystem, за �
 
 Подробная настройка/запуск/проверки — STORAGE_CONFIGURATION.md.
 Это подготовка перед этапом 05, не его реализация и не режим B.
+
+
+## Этап 05: реализованный режим A (02.11.2026)
+
+IFileService отделяет команды от UI и проверяет Session/Revision, SQL active User,
+владельца и относительный путь. IPhysicalFileStorage/IFileWorkspace реализованы
+WindowsFileStorage, политика прежнего PersonalStorage остаётся обязательной.
+IFileTransactionStore выполняет Files + Operations на одной connection/transaction.
+Публичные команды не принимают доверенный UserId или абсолютное назначение.
+
+Конфигурация StorageRoot не изменена: локальный игнорируемый Development-файл задаёт
+D:\SecureFileManagerData\Storage, затем Users/{GUID}. Нового fallback/перемещения нет.
+Внутри пользовательского корня создаётся только служебная .sfm-internal с marker,
+lock и журналами незавершённых операций; она скрыта в UI и зарезервирована политикой.
+Подробный протокол/лимиты/восстановление — FILE_OPERATIONS.md.
+
+Импорт реализован как узкая команда чтения явного внешнего источника. Это не location:
+источник не сохраняется в сессии/БД, не меняет root и не предоставляет навигацию Windows.
+Источники внутри любого пользовательского Storage запрещены. Обычные команды работают
+только по owner-scoped FileId и относительным путям.
+
+Для B можно переиспользовать DTO/VM/editor/SQL coordination/Windows IO, но недостаточно
+подменить root. Нужны Locations/grants, пересмотр (OwnerId, RelativePath) unique и
+actor==owner для аудита, отдельная авторизация внешних объектов с Windows ACL.
+Эти изменения и миграции сейчас не выполняются. Authentication/Session не зависят от
+StorageProvider, пользователи приложения не приравнены к Windows identities.

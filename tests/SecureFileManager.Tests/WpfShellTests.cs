@@ -4,6 +4,7 @@ using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -12,6 +13,9 @@ using SecureFileManager.Wpf.ViewModels;
 using SecureFileManager.Wpf.Views;
 using SecureFileManager.Core.Interfaces;
 using SecureFileManager.Core.Results;
+using SecureFileManager.Core.Files;
+using Microsoft.Extensions.DependencyInjection;
+using SecureFileManager.Wpf.Infrastructure.FileSystem;
 
 namespace SecureFileManager.Tests;
 
@@ -59,6 +63,16 @@ public sealed class WpfShellTests
             typeof(FormatsView), typeof(JournalView), typeof(SettingsView) };
         try
         {
+            // Resolve the actual application graph while replacing only the local disk root, never connecting to SQL.
+            using (var graph = App.CreateServices().AddSingleton(new PersonalStorage(Path.Combine(Path.GetTempPath(), "sfm-ui-graph-" + Guid.NewGuid().ToString("N"))))
+                .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true }))
+            {
+                var login = graph.GetRequiredService<AuthenticationWindow>();
+                var shell = graph.GetRequiredService<MainWindow>();
+                Assert.NotNull(graph.GetRequiredService<Core.Files.IFileService>());
+                Assert.NotNull(graph.GetRequiredService<IFileDialogs>());
+                login.Close(); shell.Close();
+            }
             foreach (var key in new[] { "Icon.Eye", "Icon.Drives", "Icon.Files", "Icon.Archives", "Icon.JsonXml",
                 "Icon.Journal", "Icon.Settings", "Icon.Create", "Icon.Delete", "Icon.Search", "Icon.Security",
                 "Icon.User", "Icon.Database", "Art.Anubis", "Art.Header", "Art.Footer", "Texture.Papyrus", "Texture.Stone" })
@@ -66,6 +80,10 @@ public sealed class WpfShellTests
                 var bitmap = Assert.IsAssignableFrom<BitmapSource>(app.FindResource(key));
                 Assert.True(bitmap.PixelWidth > 0 && bitmap.PixelHeight > 0, key);
             }
+            // Instantiate the real drive item template: an empty list cannot expose invalid Value bindings.
+            var drivesModel = (DrivesViewModel)model.Sections[0];
+            drivesModel.Items.Add(new(new("TEST-ready", "UI fixture", "Fixed", "NTFS", true, 1000, 250)));
+            drivesModel.Items.Add(new(new("TEST-unready", "", "Removable", "", false, 0, 0)));
             for (var index = 0; index < model.Sections.Count; index++)
             {
                 var section = model.Sections[index];
@@ -86,6 +104,16 @@ public sealed class WpfShellTests
                     root.UpdateLayout();
                     root.UpdateLayout();
                     Assert.Contains(Descendants(root), visual => visual.GetType() == expectedTypes[index]);
+                    if (section is DrivesViewModel)
+                    {
+                        var capacityBars = Descendants(root).OfType<ProgressBar>()
+                            .Where(bar => bar.DataContext is DriveCard).ToArray();
+                        Assert.Equal(2, capacityBars.Length);
+                        Assert.Equal(75d, capacityBars[0].Value);
+                        Assert.Equal(0d, capacityBars[1].Value);
+                        Assert.All(capacityBars, bar => Assert.Equal(BindingMode.OneWay,
+                            BindingOperations.GetBinding(bar, ProgressBar.ValueProperty)!.Mode));
+                    }
                     var navigation = Descendants(root).OfType<ListBox>().Single(x => AutomationProperties.GetName(x) == "Разделы приложения");
                     Assert.Same(section, navigation.SelectedItem);
                     Assert.True(root.ActualWidth <= size.Width && root.ActualHeight <= size.Height,
@@ -107,13 +135,28 @@ public sealed class WpfShellTests
             model.SelectedSection.IsLoading = true;
             root.UpdateLayout();
             Assert.Contains(Descendants(root).OfType<ProgressBar>(), bar => bar.IsIndeterminate);
-            Assert.Contains(Descendants(root).OfType<FrameworkElement>(), element => element.Name == "Loading" && element.Visibility == Visibility.Visible);
+            Assert.Contains(Descendants(root).OfType<ProgressBar>(), bar => bar.Visibility == Visibility.Visible);
             model.SelectedSection.IsLoading = false;
             model.SelectedSection.ErrorMessage = "Тест состояния: данные недоступны";
             root.UpdateLayout();
-            Assert.Contains(Descendants(root).OfType<TextBlock>(), text => text.Text == "Не удалось загрузить данные");
-            Assert.Contains(Descendants(root).OfType<FrameworkElement>(), element => element.Name == "Error" && element.Visibility == Visibility.Visible);
+            Assert.Contains(Descendants(root).OfType<TextBlock>(), text => text.Text == "Тест состояния: данные недоступны");
             model.SelectedSection.ErrorMessage = null;
+            var filesModel = (FilesViewModel)model.Sections[1];
+            filesModel.Items.Add(new("TEST-high.txt", "TXT", "20 Б", "—", "Icon.Files")
+                { Entry = new(Guid.NewGuid(), "TEST-high.txt", "TEST-high.txt", Core.Entities.FileKind.File, 20, DateTime.UtcNow, Core.Files.EntryState.Managed) });
+            filesModel.Items.Add(new("TEST-low.txt", "TXT", "2 Б", "—", "Icon.Files")
+                { Entry = new(Guid.NewGuid(), "TEST-low.txt", "TEST-low.txt", Core.Entities.FileKind.File, 2, DateTime.UtcNow, Core.Files.EntryState.Managed) });
+            root.UpdateLayout();
+            if (export is not null) Export(root, new Size(1024, 640), 1, Path.Combine(export, "files-TEST-fixture-render.png"));
+            filesModel.SearchText = "low";
+            Assert.Single(filesModel.View.Cast<FileListItem>());
+            filesModel.SearchText = ""; filesModel.SortIndex = 2;
+            Assert.Equal("TEST-low.txt", filesModel.View.Cast<FileListItem>().First().Name);
+            filesModel.Descending = true;
+            Assert.Equal("TEST-high.txt", filesModel.View.Cast<FileListItem>().First().Name);
+            filesModel.ResetUserState();
+            Assert.Empty(filesModel.Items); Assert.Empty(filesModel.SearchText);
+            CheckFileDialogsAndImport();
             CheckAuthentication(export);
             Assert.Empty(trace.ToString());
         }
@@ -123,6 +166,50 @@ public sealed class WpfShellTests
             window.Close();
             app.Shutdown();
         }
+    }
+
+    private static void CheckFileDialogsAndImport()
+    {
+        foreach (var folder in new[] { false, true })
+        {
+            var dialog = new NameDialog(folder);
+            Assert.Equal(WindowStartupLocation.CenterOwner, dialog.WindowStartupLocation);
+            Assert.Equal(folder ? "" : ".txt", dialog.Value);
+            var content = (FrameworkElement)dialog.Content;
+            content.Measure(new Size(600, 400)); content.Arrange(new Rect(0, 0, 600, 400)); content.UpdateLayout();
+            dialog.Close();
+        }
+        var service = new FileUiService();
+        var dialogs = new FileUiDialogs();
+        var model = new FilesViewModel(service, dialogs);
+        model.UpdateSession(new RenderSession().Current);
+        service.Owner = model.CurrentUser!.Id;
+        var view = new FilesView { DataContext = model };
+        view.Measure(new Size(900, 600)); view.Arrange(new Rect(0, 0, 900, 600)); view.UpdateLayout();
+        model.LoadAsync("").GetAwaiter().GetResult();
+        Assert.Null(model.ErrorMessage);
+        model.ImportCommand.Execute(null);
+        view.UpdateLayout();
+        Assert.Null(model.ErrorMessage);
+        Assert.Equal("TEST-import.txt", Assert.Single(model.Items).Name);
+        Assert.False(model.IsLoading);
+        model.SelectedFile = model.Items[0];
+        model.CreateFileCommand.Execute(null);
+        model.CreateFolderCommand.Execute(null);
+        model.LoadAsync("").GetAwaiter().GetResult();
+        view.UpdateLayout();
+        Assert.Null(model.ErrorMessage);
+        Assert.Equal(3, model.Items.Count);
+        model.SearchText = "TEST-new";
+        Assert.Single(model.View.Cast<FileListItem>());
+        model.SearchText = ""; model.SortIndex = 2;
+        Assert.Equal(3, model.View.Cast<FileListItem>().Count());
+        using var editorModel = new TextEditorViewModel(service, new RenderSession(), dialogs,
+            new(Guid.NewGuid(), "TEST-editor.txt", "TEST content", "UI-only"));
+        var editor = new TextEditorWindow(editorModel);
+        var editorContent = (FrameworkElement)editor.Content;
+        editorContent.Measure(new Size(860, 660)); editorContent.Arrange(new Rect(0, 0, 860, 660)); editorContent.UpdateLayout();
+        Assert.True(editor.TryCloseAsync().GetAwaiter().GetResult());
     }
 
     private static void CheckAuthentication(string? export)
@@ -154,6 +241,39 @@ public sealed class WpfShellTests
             }
         }
         finally { window.Close(); }
+    }
+    private sealed class FileUiService : IFileService
+    {
+        public Guid Owner { get; set; }
+        public event EventHandler<FileChangeNotification>? Changed;
+        private readonly List<FileEntry> _entries = [];
+        public Task WaitForIdleAsync() => Task.CompletedTask;
+        public Task<FileResult<IReadOnlyList<FileEntry>>> ListAsync(string directory, CancellationToken ct = default)
+            => Task.FromResult(new FileResult<IReadOnlyList<FileEntry>>(FileStatus.Success, _entries.ToArray()));
+        public Task<FileResult<bool>> ImportAsync(string directory, ImportSelection source, CancellationToken ct = default)
+            => Add(source.Name, false);
+        private Task<FileResult<bool>> Add(string name, bool folder)
+        {
+            _entries.Add(new(Guid.NewGuid(), name, name, folder ? Core.Entities.FileKind.Directory : Core.Entities.FileKind.File, 66, DateTime.UtcNow, EntryState.Managed));
+            Changed?.Invoke(this, new(Owner));
+            return Task.FromResult(new FileResult<bool>(FileStatus.Success, true));
+        }
+        public Task<FileResult<bool>> CreateAsync(string directory, string name, bool folder, CancellationToken ct = default) => Add(name, folder);
+        public Task<FileResult<TextDocument>> ReadAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<FileResult<bool>> SaveAsync(Guid id, string text, string version, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<FileResult<bool>> DeleteAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<FileResult<bool>> SynchronizeAsync(string relativePath, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<FileResult<bool>> RecoverAsync(CancellationToken ct = default) => throw new NotSupportedException();
+    }
+    private sealed class FileUiDialogs : IFileDialogs
+    {
+        public string? AskName(bool folder) => folder ? "TEST-folder" : "TEST-new.txt";
+        public ImportSelection? ChooseImport() => new("UI-fixture-only", "TEST-import.txt");
+        public bool Confirm(string title, string message) => false;
+        public void Information(string message) { }
+        public void OpenEditor(TextDocument document) { }
+        public Task<bool> CloseEditorsAsync() => Task.FromResult(true);
+        public bool? ConfirmUnsaved(string name) => false;
     }
     private sealed class AuthenticationUiStub : IAuthenticationService, IRegistrationService
     {

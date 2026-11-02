@@ -191,6 +191,9 @@ public sealed class SecurityIntegrationTests(SqlDatabaseFixture database, ITestO
     [SqlFact]
     public async Task LogoutClearsSingletonViewModelsAndTwoUsersHaveSeparateRoots()
     {
+        // WPF CollectionViews belong to one dispatcher; xUnit's async worker may change threads after SQL awaits.
+        await OnWpfThreadAsync(async () =>
+        {
         var r = NewRig(); var a = Name(); var b = Name();
         await r.Registration.RegisterAsync(a, Password, Password);
         await r.Registration.RegisterAsync(b, Password, Password);
@@ -212,6 +215,27 @@ public sealed class SecurityIntegrationTests(SqlDatabaseFixture database, ITestO
         Assert.NotEqual((await r.Storage.PrepareCurrentAsync()).PhysicalPath, Path.Combine(r.Root, "Users", first.Id.ToString("D")));
         await using var db = r.Factory.CreateDbContext();
         Assert.Contains(await db.Operations.Where(x => x.UserId == first.Id).ToListAsync(), x => x.OperationType == OperationType.LOGOUT);
+        });
+    }
+
+    private static Task OnWpfThreadAsync(Func<Task> action)
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            var dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+            SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext(dispatcher));
+            dispatcher.BeginInvoke(new Action(async () =>
+            {
+                try { await action(); completion.SetResult(); }
+                catch (Exception error) { completion.SetException(error); }
+                finally { dispatcher.BeginInvokeShutdown(System.Windows.Threading.DispatcherPriority.Background); }
+            }));
+            System.Windows.Threading.Dispatcher.Run();
+        }) { IsBackground = true };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return completion.Task.WaitAsync(TimeSpan.FromSeconds(60));
     }
 
     [SqlFact]
@@ -361,7 +385,7 @@ public sealed class SecurityIntegrationTests(SqlDatabaseFixture database, ITestO
         }
     }
 
-    private static void CreateJunction(string link, string target)
+    internal static void CreateJunction(string link, string target)
     {
         Directory.CreateDirectory(link);
         var substitute = Encoding.Unicode.GetBytes(@"\??\" + target);
@@ -388,5 +412,5 @@ public sealed class SecurityIntegrationTests(SqlDatabaseFixture database, ITestO
     private static extern bool DeviceIoControl(SafeFileHandle handle, uint control, byte[] input, int inputSize, IntPtr output, int outputSize, out int returned, IntPtr overlapped);
     [DllImport("kernel32.dll", EntryPoint = "CreateHardLinkW", CharSet = CharSet.Unicode, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool CreateHardLink(string name, string existing, IntPtr security);
+    internal static extern bool CreateHardLink(string name, string existing, IntPtr security);
 }

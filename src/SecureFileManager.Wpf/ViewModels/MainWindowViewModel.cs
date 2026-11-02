@@ -50,6 +50,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public SectionViewModel SelectedSection
     {
         get => _selectedSection;
-        set { if (value is not null && Sections.Contains(value)) SetProperty(ref _selectedSection, value); }
+        set { if (value is not null && Sections.Contains(value) && SetProperty(ref _selectedSection, value)) _ = value.ActivateAsync(); }
     }
+    public Task ActivateCurrentAsync() => SelectedSection.ActivateAsync();
 }

@@ -1,0 +1,9 @@
+02.11.2026 — read-only SQL / filesystem verification
+Local SQL Server Express; Windows Authentication; Encrypt=True; local certificate trust.
+SecureFileManagerDB: UsersCount=1, FilesCount=0, MigrationsCount=2.
+Connection encrypt_option=TRUE.
+Latest owned test database removed=True; latest owned run directory removed=True.
+Existing SQL user GUID directory found under configured StorageRoot=True.
+Repository/Storage exists=False.
+Final WPF fixture PNG renders=23.
+No user file contents, usernames, password hashes or connection secrets exported.

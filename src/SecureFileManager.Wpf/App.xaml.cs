@@ -8,6 +8,8 @@ using SecureFileManager.Data.DependencyInjection;
 using SecureFileManager.Wpf.Infrastructure.FileSystem;
 using SecureFileManager.Wpf.ViewModels;
 using SecureFileManager.Wpf.Views;
+using SecureFileManager.Core.Files;
+using SecureFileManager.Wpf.Infrastructure.Dialogs;
 namespace SecureFileManager.Wpf;
 
 public partial class App : Application
@@ -23,7 +25,20 @@ public partial class App : Application
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         try
         {
-            var services = new ServiceCollection().AddSecureFileManagerData()
+            var services = CreateServices();
+            _services = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+            ShowLogin("");
+        }
+        catch
+        {
+            MessageBox.Show("Не удалось настроить приложение. Проверьте конфигурацию базы данных и личного хранилища.",
+                "Ошибка конфигурации", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(1);
+        }
+    }
+    public static IServiceCollection CreateServices()
+    {
+        return new ServiceCollection().AddSecureFileManagerData()
                 .AddSingleton<IClock, SystemClock>()
                 .AddSingleton<IPasswordSecurity>(_ => new PasswordSecurity())
                 .AddSingleton(_ => new LoginProtectionPolicy())
@@ -32,6 +47,10 @@ public partial class App : Application
                 .AddSingleton<PersonalStorage>(_ => PersonalStorage.FromConfiguration())
                 .AddSingleton<IPersonalStorageProvisioner>(s => s.GetRequiredService<PersonalStorage>())
                 .AddSingleton<IPathPolicy>(s => s.GetRequiredService<PersonalStorage>())
+                .AddSingleton<IPhysicalFileStorage, WindowsFileStorage>()
+                .AddSingleton<IFileService, FileService>()
+                .AddSingleton<IDriveService, WindowsDriveService>()
+                .AddSingleton<IFileDialogs, WindowsFileDialogs>()
                 .AddSingleton<IFileAccessPolicy, PersonalFileAccessPolicy>()
                 .AddSingleton<IAuditService, SecurityAudit>()
                 .AddSingleton<IAuthenticationService, AuthenticationService>()
@@ -43,15 +62,6 @@ public partial class App : Application
                 .AddSingleton<MainWindowViewModel>()
                 .AddTransient<Views.MainWindow>()
                 .AddTransient<AuthenticationWindowViewModel>().AddTransient<AuthenticationWindow>();
-            _services = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
-            ShowLogin("");
-        }
-        catch
-        {
-            MessageBox.Show("Не удалось настроить приложение. Проверьте конфигурацию базы данных и личного хранилища.",
-                "Ошибка конфигурации", MessageBoxButton.OK, MessageBoxImage.Error);
-            Shutdown(1);
-        }
     }
     private void ShowLogin(string message)
     {
@@ -86,6 +96,7 @@ public partial class App : Application
             _shell.Show();
             _authentication.Close();
             _authentication = null;
+            await _services!.GetRequiredService<MainWindowViewModel>().ActivateCurrentAsync();
         }
         catch
         {
@@ -107,6 +118,10 @@ public partial class App : Application
         if (_transition) return;
         _transition = true;
         string message;
+        if (_shell is not null) _shell.IsEnabled = false;
+        if (!await _services!.GetRequiredService<IFileDialogs>().CloseEditorsAsync())
+        { if (_shell is not null) _shell.IsEnabled = true; _transition = false; return; }
+        await _services!.GetRequiredService<IFileService>().WaitForIdleAsync();
         try
         {
             var result = await _services!.GetRequiredService<IAuthenticationService>().LogoutAsync();

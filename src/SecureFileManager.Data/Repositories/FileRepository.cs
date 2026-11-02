@@ -28,6 +28,17 @@ public sealed class FileRepository(IDbContextFactory<AppDbContext> factory) : Re
         ExecuteAsync<IReadOnlyList<FileRecord>>(async db => RepositoryResult<IReadOnlyList<FileRecord>>.Ok(
             await db.Files.AsNoTracking().Where(x => x.OwnerId == ownerId).OrderBy(x => x.RelativePath).ToListAsync(cancellationToken)), cancellationToken);
 
+    public Task<RepositoryResult<IReadOnlyList<FileRecord>>> ListChildrenAsync(Guid ownerId, string directory, CancellationToken cancellationToken = default) =>
+        ExecuteAsync<IReadOnlyList<FileRecord>>(async db =>
+        {
+            var prefix = directory == "" ? "" : directory + "/";
+            var query = db.Files.AsNoTracking().Where(x => x.OwnerId == ownerId);
+            query = directory == "" ? query.Where(x => !x.RelativePath.Contains("/")) :
+                query.Where(x => x.RelativePath.StartsWith(prefix) && !x.RelativePath.Substring(prefix.Length).Contains("/"));
+            return RepositoryResult<IReadOnlyList<FileRecord>>.Ok(await query.OrderBy(x => x.RelativePath)
+                .Take(SecureFileManager.Core.Files.FileRules.ListLimit + 1).ToListAsync(cancellationToken));
+        }, cancellationToken);
+
     public Task<RepositoryResult<FileRecord>> UpdateAsync(FileRecord file, CancellationToken cancellationToken = default) =>
         ExecuteAsync<FileRecord>(async db =>
         {

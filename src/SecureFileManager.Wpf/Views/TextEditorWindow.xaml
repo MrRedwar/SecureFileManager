@@ -1,0 +1,9 @@
+<Window x:Class="SecureFileManager.Wpf.Views.TextEditorWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:files="clr-namespace:SecureFileManager.Core.Files;assembly=SecureFileManager.Core"
+ Style="{StaticResource {x:Type Window}}" Title="{Binding Title}" Width="860" Height="660" MinWidth="600" MinHeight="440">
+ <Window.InputBindings><KeyBinding Key="S" Modifiers="Control" Command="{Binding SaveCommand}"/></Window.InputBindings>
+ <Grid Margin="24"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+ <DockPanel Margin="0,0,0,16"><Button DockPanel.Dock="Right" Content="Сохранить" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}"/><StackPanel><TextBlock Text="{Binding Name}" Style="{StaticResource SectionHeading}"/><TextBlock Text="TXT · UTF-8 · до 10 МиБ" Style="{StaticResource MutedText}"/></StackPanel></DockPanel>
+ <TextBox Grid.Row="1" MaxLength="{x:Static files:FileRules.TextLimit}" Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsUsable}" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap" FontFamily="Consolas" FontSize="14" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Содержимое TXT"/>
+ <TextBlock Grid.Row="2" Text="{Binding Error}" TextWrapping="Wrap" Foreground="{DynamicResource Brush.Danger}" Margin="0,16,0,0"/>
+ </Grid>
+</Window>

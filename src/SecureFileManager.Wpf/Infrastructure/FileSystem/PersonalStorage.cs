@@ -11,6 +11,7 @@ namespace SecureFileManager.Wpf.Infrastructure.FileSystem;
 public sealed class PersonalStorage : IPersonalStorageProvisioner, IPathPolicy
 {
     private readonly string _root;
+    internal string StorageRoot => _root;
     public PersonalStorage(string root)
     {
         if (!Path.IsPathFullyQualified(root)) throw new InvalidOperationException("Корень хранения должен быть абсолютным.");

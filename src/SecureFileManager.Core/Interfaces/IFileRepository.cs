@@ -11,6 +11,7 @@ public interface IFileRepository
     Task<RepositoryResult<FileRecord>> GetByIdAsync(Guid ownerId, Guid id, CancellationToken cancellationToken = default);
     Task<RepositoryResult<FileRecord>> GetByPathAsync(Guid ownerId, string relativePath, CancellationToken cancellationToken = default);
     Task<RepositoryResult<IReadOnlyList<FileRecord>>> ListAsync(Guid ownerId, CancellationToken cancellationToken = default);
+    Task<RepositoryResult<IReadOnlyList<FileRecord>>> ListChildrenAsync(Guid ownerId, string directory, CancellationToken cancellationToken = default);
     Task<RepositoryResult<FileRecord>> UpdateAsync(FileRecord file, CancellationToken cancellationToken = default);
     Task<RepositoryResult<FileRecord>> SoftDeleteAsync(Guid ownerId, Guid id, byte[] rowVersion,
         DateTime deletedAtUtc, CancellationToken cancellationToken = default);
