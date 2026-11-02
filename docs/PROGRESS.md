@@ -893,3 +893,103 @@ Git diff по Data/миграциям/App composition root пуст; новых 
 
 Код, конфигурация, БД и пользовательские файлы не менялись. Этап 07 не начат,
 для него необходимо отдельное разрешение. Git-коммит не создавался.
+
+## 02.11.2026 — этап 07: безопасное ZIP-архивирование и распаковка
+
+Пользователь разрешил только 07.01–07.07. Перед кодом восстановлен контекст по AGENTS,
+TECHNICAL_SPEC, DESIGN_SPEC, TASKS, DECISIONS, PROGRESS, архитектуре/persistence,
+документации/ручным инструкциям 05–06, ассетам и PNG-концепту. Сверены solution/csproj,
+Core/auth/session/access/path, Windows handles/links, CRUD/import/editor, staging/recovery,
+SQL/репозитории/аудит, DI/Views/VM/resources и тесты. Git был чистым, HEAD 2410ae0.
+Этап 06 принят; специальных native/DPI/power-loss доказательств сверх имеющихся не заявляем.
+
+Реализованы ZIP-команды в том же FileService (partial, IArchiveService — DI alias),
+ZipEngine/System.IO.Compression, неизменяемые ZipLimits, OpenBinary/StageGenerated,
+IFilePreparation и Tree в прежнем FileJournal. Старые plans совместимы; Data/схема/миграции
+не менялись. Workspace/Run/gate/Session/Revision/SQL-owner lock/Files/Operations переиспользованы.
+Создание ZIP — Store/NoCompression (не создаёт собственный anti-bomb ratio violation).
+Источники повторно проверены по owner IDs/метаданным/ФС, untracked/changed дети не усваиваются,
+пересечения выбора дедуплицируются, self-inclusion/overwrite/reparse запрещены.
+
+Preview: bounded EOCD/central/local header preflight до ZipArchive entries allocation,
+список/размеры/предупреждения без извлечения. Store/Deflate, без ZIP64/multipart/encryption.
+Entry paths strict Windows: no traversal/absolute/drive/UNC/mixed separators/ADS/reserved
+names/special links/case-insensitive collisions/file-parent conflicts. 250 entries/output nodes,
+25 МиБ/entry, 100 МиБ total, 100:1; actual bytes/declared length/CRC32 потоково, буфер 64 КиБ.
+Распаковка готовит дерево в private new и публикует НОВУЮ папку в выбранном личном родителе
+одним rename. Без merge/overwrite. Files всего дерева и ZIP_EXTRACTED коммитятся вместе;
+ZIP_CREATED/EXTRACTED имеют FILE_TX_* correlation для прежнего ambiguous commit recovery.
+Tree rollback сначала проверяет весь состав и версии с удержанием handles; внешнее изменение
+сохраняется, не удаляется слепо. Incomplete plan/ошибка cleanup — RecoveryRequired/ручной разбор.
+
+WPF: Extended selection, существующая «Архивировать», открытие ZIP/preview/extract/cancel,
+личный folder picker/имя/подтверждения, async status. Archives переиспользует FilesView/VM
+в двух вкладках; source/doc editor не дублируется. Сессии очищают состояние/закрывают
+ZIP-диалоги/отменяют подготовку, поздний progress не выдаёт ложный Success.
+
+Найденные/исправленные дефекты: собственные pins конфликтовали с DELETE handles при
+публикации дерева; глубокий staging превышал обычный Win32 path limit; бинарный поток
+после fingerprint требовал Position=0; компактная архивная панель оставляла таблицу без
+высоты; пустые строки сообщений занимали место. Добавлены regression assertions.
+Проверка границы staging различает компонент .. и допустимое имя ..allowed.txt.
+Тестовый dispatcher изолирован от автоматически поставленного production App startup;
+при этом используются реальные App.xaml/DI/Views/ResourceDictionary.
+
+Проверки, Windows:
+- dotnet --info: SDK 9.0.200. vswhere ManagedDesktop: VS 2022 17.13.35818.85. MSSQL$SQLEXPRESS Running.
+- dotnet restore SecureFileManager.sln — успешно вне песочницы с Windows SDK/NuGet.
+- dotnet build SecureFileManager.sln -c Debug --no-restore — 0 warnings/errors до последнего
+  уточнения boundary. Финальный dotnet build SecureFileManager.sln -c Debug
+  --artifacts-path artifacts/stage07-verify --no-restore — 0 warnings/errors.
+- Первые ZIP-прогоны 127/129 и 128/129 выявили дефекты; они исправлены, тесты не удалены.
+- Полный обычный scripts/Test-Stage07.ps1: 140 passed, 0 failed, 0 skipped, 37 с.
+- Итоговый полный scripts/Test-Stage07.ps1 -ArtifactsPath <repo>/artifacts/stage07-verify:
+  140 passed, 0 failed, 0 skipped, 33 с. TRX tests/SecureFileManager.Tests/TestResults/stage07.trx.
+  45 новых ZIP-кейсов + все прежние 95. Точечные прогоны теперь не затирают полный TRX.
+- Реальная GUID-тестовая БД и новый run-GUID каждого запуска очищены fixture/скриптом,
+  без следования reparse и без удаления старых баз/каталогов/рабочих данных.
+- SQL integration: mixed files/folders/empty/deep/round-trip/Files+Operations, access/session,
+  traversal/junction, callback cancel, controlled disk-full/IO, missing DB/trigger audit failure,
+  CRC/limit cleanup, recovery/ambiguous commit/external replacement/retry/concurrent names.
+- Unit: 18 path inputs, 4 collisions, symlink/special attrs, 251 tiny entries, stricter small
+  budgets, zero compressed, forged/truncated/encrypted/unsupported headers, actual streaming guards.
+- WPF STA: alias identity, multiple selection/disabled single actions, source/ZIP browsers,
+  preview denial, destination header/rows, layout min table height, binding trace clean.
+  34 PNG (RenderTargetBitmap, не desktop/DPI certification) сохранены в screenshots/stage07;
+  compact Archives/ZIP preview/destination просмотрены глазами.
+- Read-only рабочая SQL: MigrationCount=2, TLS TRUE, NTLM. Выведен только StorageRoot:
+  D:\SecureFileManagerData\Storage; конфигурация не менялась.
+- dotnet run --project src/SecureFileManager.Wpf --no-build --launch-profile
+  "SecureFileManager (Development)": реальное окно входа; CUA прочёл подтверждённый статус
+  подключения к БД. Учётные данные не вводились, рабочие документы не редактировались.
+  Проверочный экземпляр оставлен на окне входа; перед F5/сборкой закрыть его.
+- git -c core.safecrlf=false diff --check — без ошибок whitespace.
+
+Созданы STAGE07_REPORT (анализ, 07.01–07.07, безопасность, матрица 46 сценариев, все файлы),
+STAGE07_MANUAL_TEST (основные 17 шагов, negatives/cancel/регрессия/SQL), тестовые ZIP <1 КиБ
+в docs/test-data/stage07 (явный fixture, не seed), README рендеров, Test-Stage07.ps1.
+Обновлены TASKS/DECISIONS/FILE_OPERATIONS/STORAGE_ARCHITECTURE.
+
+Итог: Частично по ручной приёмке. 07.02/03/04/05/07 закрыты по автоматическим доказательствам;
+07.01/06 остаются открытыми до native GUI/диалогов/прогресса/keyboard/DPI проверки пользователем.
+Computer-use skill запрещает автоматизацию пользовательского auth; read-only запуск проверен.
+Не заявлены real full disk/power loss/отдельная physical file symlink/защита от администратора.
+SQL/NTFS не являются распределённо атомарными. Режим B и новые службы/пакеты не добавлены.
+Этап 08 не начат. Git-коммита нет. Рабочая БД/пользовательские данные не удалялись.
+
+## 02.11.2026 — подтверждение ручной приёмки этапа 07
+
+Пользователь сообщил, что вручную проверил функции архива и ошибок не обнаружил,
+и поручил отметить, что всё в порядке. Подтверждение принято как завершение ручной
+приёмки этапа 07. Задачи 07.01 и 07.06 отмечены выполненными; все пункты 07.01–07.07
+закрыты, общий статус этапа 07 — Готово.
+
+Обновлены TASKS.md, STAGE07_REPORT.md, STAGE07_MANUAL_TEST.md и эта запись PROGRESS.md.
+Источник результата — сообщение пользователя, не новый GUI-прогон Codex. Отдельного
+протокола каждого шага/DPI/специальных отказов нет; прежние технические ограничения
+сохранены. Последние автоматические результаты — 140/140, без ошибок и пропусков.
+Сборка и тесты для этой документационной задачи повторно не запускались.
+Проверка изменений документации: git diff --check.
+
+Код, конфигурация, БД и пользовательские файлы не менялись. По прямому указанию
+пользователя этап 08 не начат, Git-коммит не создавался.

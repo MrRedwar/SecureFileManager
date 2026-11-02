@@ -449,3 +449,17 @@ StorageRoot, Users/{GUID}, ссылки, зарезервированные им
 FilesView переиспользуется разделом JSON/XML, все документы открывает прежний координатор
 WindowsFileDialogs, исключающий дубликат окна по FileId. Данные документа не живут в FormatsViewModel.
 Ни B-locations/grants, ни новые таблицы/миграции не вводились. Подробности — STAGE06_REPORT.md.
+
+## Этап 07: ZIP и публикация дерева
+
+IArchiveService реализуется тем же FileService и разрешается DI в тот же singleton, что IFileService.
+OpenBinary/StageGenerated расширяют прежний workspace, ZIP-парсер получает только streams
+и IFilePreparation. Источники/назначения сохраняют Session/Revision, active SQL User,
+owner-scoped IDs/relative paths и Windows handle boundary. Источники вне Files не усваиваются автоматически.
+
+Extract создаёт новую папку в выбранном личном родителе, без merge/overwrite. Прежний plan
+хранит снимок всего подготовленного дерева; root публикуется одним rename, Files/Operations
+коммитятся прежним FileTransactionStore. Recovery проверяет состав/identity/hash до удаления
+uncommitted данных; изменённое дерево сохраняется для разбора. SQL/NTFS остаются двумя ресурсами.
+Планы этапов 05/06 совместимы, новые enum kinds добавлены в конец; SQL-схема не меняется.
+Конкретный StorageRoot и будущие B Locations/grants не менялись. Подробности/ограничения — STAGE07_REPORT.md.

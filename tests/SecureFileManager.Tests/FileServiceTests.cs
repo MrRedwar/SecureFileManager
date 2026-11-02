@@ -39,8 +39,8 @@ public sealed partial class FileServiceTests(SqlDatabaseFixture database, ITestO
             Db = new(connection); Paths = new(Root); Disk = new WindowsFileStorage(Paths);
             Files = Build(Disk);
         }
-        public FileService Build(IPhysicalFileStorage disk, IFileTransactionStore? store = null) => new(Session, new PersonalFileAccessPolicy(),
-            store ?? new FileTransactionStore(Db), disk, new SecurityAudit(new OperationRepository(Db), new SystemClock()), new SystemClock());
+        public FileService Build(IPhysicalFileStorage disk, IFileTransactionStore? store = null, ZipLimits? limits = null) => new(Session, new PersonalFileAccessPolicy(),
+            store ?? new FileTransactionStore(Db), disk, new SecurityAudit(new OperationRepository(Db), new SystemClock()), new SystemClock(), limits);
         public async Task Initialize()
         {
             await using var db = Db.CreateDbContext();
@@ -361,10 +361,13 @@ public sealed partial class FileServiceTests(SqlDatabaseFixture database, ITestO
         public IReadOnlyList<PhysicalEntry> List(string path) => inner.List(path);
         public PhysicalEntry Inspect(string path) => inner.Inspect(path);
         public PhysicalText Read(string path) => inner.Read(path);
+        public BinaryDocument OpenBinary(string path, long limit) => inner.OpenBinary(path, limit);
         public IReadOnlyList<FileJournal> Pending() => inner.Pending();
         public FileJournal Stage(Guid id, ChangeKind kind, string path, string? text = null, string? expected = null, ImportSelection? source = null) =>
             inner.Stage(id, kind, path, text, expected, source);
         public void Publish(FileJournal journal) { inner.Publish(journal); afterPublish(); }
+        public FileJournal StageGenerated(Guid id, string path, bool directory, Action<IFilePreparation> prepare, CancellationToken ct) =>
+            inner.StageGenerated(id, path, directory, prepare, ct);
         public void Settle(FileJournal journal, bool committed) => inner.Settle(journal, committed);
         public void Dispose() => inner.Dispose();
     }

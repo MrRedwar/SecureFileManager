@@ -6,7 +6,7 @@ using SecureFileManager.Core.Entities;
 using SecureFileManager.Core.Files;
 namespace SecureFileManager.Wpf.Infrastructure.FileSystem;
 
-public sealed class WindowsFileStorage(PersonalStorage roots) : IPhysicalFileStorage
+public sealed partial class WindowsFileStorage(PersonalStorage roots) : IPhysicalFileStorage
 {
     public IFileWorkspace Open(Guid owner)
     {
@@ -14,7 +14,7 @@ public sealed class WindowsFileStorage(PersonalStorage roots) : IPhysicalFileSto
         if (!root.Succeeded || root.PhysicalPath is null) throw new FileCommandException(FileStatus.Unavailable);
         return new Workspace(root.PhysicalPath, roots.StorageRoot);
     }
-    private sealed class Workspace : IFileWorkspace
+    private sealed partial class Workspace : IFileWorkspace
     {
         private readonly string _root, _storage, _internal;
         private readonly List<SafeFileHandle> _pins = [];
@@ -60,7 +60,11 @@ public sealed class WindowsFileStorage(PersonalStorage roots) : IPhysicalFileSto
         }
         private void PinDirectory(string path)
         {
-            if (_pinned.Add(Path.GetFullPath(path))) _pins.AddRange(SafeNativeFile.Pin(path));
+            if (_pinned.Add(Path.GetFullPath(path)))
+            {
+                try { _pins.AddRange(SafeNativeFile.Pin(path, _objects)); }
+                catch { _pinned.Remove(Path.GetFullPath(path)); throw; }
+            }
         }
         private void ParentPin(string full) => PinDirectory(Path.GetDirectoryName(full)!);
         private SafeFileHandle Object(string full, bool directory, bool delete)
@@ -133,7 +137,7 @@ public sealed class WindowsFileStorage(PersonalStorage roots) : IPhysicalFileSto
                 catch (FileCommandException) { throw new FileCommandException(FileStatus.RecoveryRequired); }
                 using var handle = manifest;
                 var info = SafeNativeFile.Information(handle);
-                if (info.Length > 4096) throw new FileCommandException(FileStatus.RecoveryRequired);
+                if (info.Length > 1024 * 1024) throw new FileCommandException(FileStatus.RecoveryRequired);
                 var data = new byte[checked((int)info.Length)]; RandomAccess.Read(handle, data, 0);
                 FileJournal? journal;
                 try { journal = JsonSerializer.Deserialize<FileJournal>(data); }
@@ -141,13 +145,20 @@ public sealed class WindowsFileStorage(PersonalStorage roots) : IPhysicalFileSto
                 if (journal is null || journal.Id != id || !Enum.IsDefined(journal.Kind))
                     throw new FileCommandException(FileStatus.RecoveryRequired);
                 FileRules.Path(journal.RelativePath); items.Add(journal);
+                if (journal.Kind == ChangeKind.Extract && (!journal.IsDirectory || journal.Tree is null || journal.Tree.Count > 250))
+                    throw new FileCommandException(FileStatus.RecoveryRequired);
+                foreach (var child in journal.Tree ?? [])
+                { FileRules.Path(child.Path); if (string.IsNullOrEmpty(child.Version)) throw new FileCommandException(FileStatus.RecoveryRequired); }
             }
             return items;
         }
         public FileJournal Stage(Guid id, ChangeKind kind, string path, string? text = null, string? expected = null, ImportSelection? source = null)
+            => StageCore(id, kind, path, text, expected, source, null, default);
+        private FileJournal StageCore(Guid id, ChangeKind kind, string path, string? text, string? expected, ImportSelection? source,
+            Action<IFilePreparation>? prepare, CancellationToken ct)
         {
             var full = Target(path); ParentPin(full);
-            var folder = kind == ChangeKind.Directory;
+            var folder = kind is ChangeKind.Directory or ChangeKind.Extract;
             SafeFileHandle? original = null;
             string? before = null;
             if (kind is ChangeKind.Save or ChangeKind.Delete)
@@ -168,7 +179,15 @@ public sealed class WindowsFileStorage(PersonalStorage roots) : IPhysicalFileSto
                 string? after = null;
                 if (kind != ChangeKind.Delete)
                 {
-                    if (folder) Directory.CreateDirectory(Part(id, "new"));
+                    if (prepare is not null)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (folder) Directory.CreateDirectory(Part(id, "new"));
+                        using var area = new Preparation(Part(id, "new"), path, folder);
+                        prepare(area);
+                        ct.ThrowIfCancellationRequested();
+                    }
+                    else if (folder) Directory.CreateDirectory(Part(id, "new"));
                     else
                     {
                         using var output = new FileStream(Part(id, "new"), FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, FileOptions.WriteThrough);
@@ -193,15 +212,23 @@ public sealed class WindowsFileStorage(PersonalStorage roots) : IPhysicalFileSto
                     var next = Object(Part(id, "new"), folder, true);
                     after = SafeNativeFile.Fingerprint(next);
                 }
-                var journal = new FileJournal(id, kind, path, folder, before, after);
+                var journal = new FileJournal(id, kind, path, folder, before, after)
+                { Tree = kind == ChangeKind.Extract ? CaptureTree(Part(id, "new")) : null };
+                ReleaseChildren(Part(id, "new"));
                 using var manifest = new FileStream(Part(id, "plan.json"), FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough);
                 manifest.Write(JsonSerializer.SerializeToUtf8Bytes(journal)); manifest.Flush(true);
                 return journal;
             }
-            catch
+            catch (Exception error)
             {
                 // Only artifacts created under this fresh transaction ID; no original is touched before Publish.
-                try { RemovePart(id, "new", folder, null); RemovePart(id, "plan.json", false, null); RemoveTransaction(id); } catch { }
+                try
+                {
+                    if (kind == ChangeKind.Extract && Directory.Exists(Part(id, "new"))) DeleteTree(Part(id, "new"), null);
+                    else RemovePart(id, "new", folder, null);
+                    RemovePart(id, "plan.json", false, null); RemoveTransaction(id);
+                }
+                catch (Exception cleanup) { throw new FileCommandException(FileStatus.RecoveryRequired, inner: new AggregateException(error, cleanup)); }
                 throw;
             }
         }
@@ -247,6 +274,7 @@ public sealed class WindowsFileStorage(PersonalStorage roots) : IPhysicalFileSto
         }
         public void Settle(FileJournal journal, bool committed)
         {
+            if (journal.Kind == ChangeKind.Extract) { SettleTree(journal, committed); return; }
             var full = Target(journal.RelativePath); ParentPin(full);
             if (!committed)
             {

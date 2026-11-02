@@ -6,6 +6,8 @@ namespace SecureFileManager.Wpf.Views;
 public partial class FilesView : UserControl
 {
     public FilesView() { InitializeComponent(); }
+    private void SelectionChanged(object sender, SelectionChangedEventArgs e)
+    { if (sender is DataGrid grid && DataContext is FilesViewModel model) model.SetSelection(grid.SelectedItems.Cast<FileListItem>()); }
     private void OpenDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (sender is DataGrid grid && e.OriginalSource is DependencyObject source &&

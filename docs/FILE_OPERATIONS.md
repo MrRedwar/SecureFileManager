@@ -151,3 +151,24 @@ Reload — явная команда перечитывания и обновл�
 UI подтверждает потерю буфера и заменяет его только после успеха. Конфликт не даёт force overwrite.
 JSON_VALIDATED/XML_VALIDATED дополняют прежний FILE_UPDATED, отдельного журнала/SQL схемы нет.
 Парсеры/лимиты/тесты/ручная приёмка описаны в DECISIONS.md и STAGE06_REPORT.md.
+
+## Актуализация этапа 07
+
+ZIP-команды обслуживает тот же FileService/Run/SQL/Windows workspace. StageGenerated готовит
+один архив либо целое дерево в прежнем private new. Extract публикует только НОВУЮ папку
+одним rename; merge/overwrite запрещены. Tree в плане фиксирует каждый относительный узел
+и его версию, plan <=1 МиБ, <=250 выходных узлов. Проверка всего дерева предшествует
+rollback-delete; все проверяемые handles удерживаются до удаления. Неожиданное изменение
+даёт RecoveryRequired, а не слепую очистку. Исходные пользовательские файлы не удаляются.
+
+Успех ZIP_CREATED/ZIP_EXTRACTED имеет FILE_TX_* и тот же CorrelationId, поэтому прежнее
+восстановление разрешает неопределённый SQL commit. Новые Files всего дерева и аудит
+фиксируются одной SQL-транзакцией. Сбой после publish компенсируется, неподтверждённый
+commit сохраняет артефакты. Incomplete plan/ошибка cleanup требуют ручного разбора, не удаления .sfm-internal.
+
+Потоковый ZipEngine использует 64 КиБ, strict Windows entry-path policy, preflight заголовков,
+лимиты 250/25 МиБ/100 МиБ/100:1, фактические байты/длину/CRC. Preview не извлекает данные.
+Store/Deflate читаются, создание — Store; ZIP64/encrypted/multipart не поддерживаются.
+Симлинки/special entries и физические reparse/hard links отвергаются. Безопасность от
+привилегированного локального обхода и любого power loss не обещается.
+Полный алгоритм, тесты и ручная инструкция — STAGE07_REPORT.md / STAGE07_MANUAL_TEST.md.

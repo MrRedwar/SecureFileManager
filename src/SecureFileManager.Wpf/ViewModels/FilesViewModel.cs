@@ -18,7 +18,7 @@ public sealed record FileListItem(string Name, string Type, string Size, string 
         EntryState.Changed => "Изменён — сверить", EntryState.Missing => "Отсутствует — сверить", _ => "Недоступно"
     };
 }
-public sealed class FilesViewModel : SectionViewModel
+public sealed class FilesViewModel : SectionViewModel, IDisposable
 {
     private sealed class FileItems : ObservableCollection<FileListItem>
     {
@@ -35,6 +35,17 @@ public sealed class FilesViewModel : SectionViewModel
     }
     private readonly IFileService? _files;
     private readonly IFileDialogs? _dialogs;
+    private readonly IArchiveService? _archives;
+    private readonly IArchiveDialogs? _archiveDialogs;
+    private CancellationTokenSource? _archiveCancellation;
+    private readonly List<FileListItem> _selection = [];
+    private string _operationStatus = "";
+    public string OperationStatus { get => _operationStatus; private set => SetProperty(ref _operationStatus, value); }
+    public bool ShowGeneralActions { get; }
+    public bool ShowManagement { get; }
+    public bool ShowOpen { get; }
+    public bool ShowArchiveCreate { get; }
+    public bool IsArchiveRunning => _archiveCancellation is not null;
     private long _generation;
     private string _directory = "", _search = "";
     private int _sort;
@@ -49,7 +60,9 @@ public sealed class FilesViewModel : SectionViewModel
         get => _selectedFile;
         set { if (SetProperty(ref _selectedFile, value)) { RaisePropertyChanged(nameof(SelectedCount)); CommandManager.InvalidateRequerySuggested(); } }
     }
-    public int SelectedCount => SelectedFile is null ? 0 : 1;
+    public int SelectedCount => _selection.Count > 0 ? _selection.Count : SelectedFile is null ? 0 : 1;
+    public void SetSelection(IEnumerable<FileListItem> selection)
+    { _selection.Clear(); _selection.AddRange(selection); RaisePropertyChanged(nameof(SelectedCount)); CommandManager.InvalidateRequerySuggested(); }
     public string Breadcrumb => CurrentUser is null ? "Моё хранилище / Вход не выполнен" :
         "Моё хранилище / " + (_directory == "" ? "Корень" : _directory.Replace("/", " / "));
     public string CurrentDirectory => _directory;
@@ -68,27 +81,42 @@ public sealed class FilesViewModel : SectionViewModel
     public ICommand ImportCommand { get; }
     public ICommand SynchronizeCommand { get; }
     public ICommand RecoverCommand { get; }
+    public ICommand ArchiveCommand { get; }
+    public ICommand PreviewArchiveCommand { get; }
+    public ICommand ExtractArchiveCommand { get; }
+    public ICommand CancelArchiveCommand { get; }
     private bool Ready => _files is not null && CurrentUser is not null && !IsLoading;
-    public FilesViewModel(IFileService? files = null, IFileDialogs? dialogs = null, bool structuredOnly = false)
+    public FilesViewModel(IFileService? files = null, IFileDialogs? dialogs = null, bool structuredOnly = false,
+        IArchiveService? archives = null, IArchiveDialogs? archiveDialogs = null, bool zipOnly = false, bool directoriesOnly = false, bool archiveSources = false)
         : base("Мои файлы", "Личное пространство для ваших документов", "Icon.Files")
     {
-        _files = files; _dialogs = dialogs; View = CollectionViewSource.GetDefaultView(Items);
+        _files = files; _dialogs = dialogs; _archives = archives ?? files as IArchiveService;
+        _archiveDialogs = archiveDialogs ?? dialogs as IArchiveDialogs; View = CollectionViewSource.GetDefaultView(Items);
+        ShowGeneralActions = !zipOnly && !archiveSources; ShowManagement = !archiveSources;
+        ShowOpen = !zipOnly; ShowArchiveCreate = !zipOnly;
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
         _dispatcher = dispatcher?.CheckAccess() == true ? dispatcher : null;
         if (_files is not null) _files.Changed += OnFilesChanged;
         View.Filter = value => value is FileListItem item && item.Name.Contains(_search, StringComparison.CurrentCultureIgnoreCase) &&
             (!structuredOnly || item.Entry?.Kind == FileKind.Directory || item.Name.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ||
-             item.Name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase));
+             item.Name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)) &&
+            (!zipOnly || item.Entry?.Kind == FileKind.Directory || item.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) &&
+            (!directoriesOnly || item.Entry?.Kind == FileKind.Directory);
         RefreshCommand = new AsyncRelayCommand(_ => LoadAsync(_directory), () => Ready);
         ParentCommand = new AsyncRelayCommand(_ => LoadAsync(FileRules.Parent(_directory)), () => Ready && _directory != "");
         RootCommand = new AsyncRelayCommand(_ => LoadAsync(""), () => Ready);
         CreateFileCommand = new AsyncRelayCommand(_ => CreateAsync(false), () => Ready && _dialogs is not null);
         CreateFolderCommand = new AsyncRelayCommand(_ => CreateAsync(true), () => Ready && _dialogs is not null);
-        OpenCommand = new AsyncRelayCommand(_ => OpenAsync(), () => Ready && SelectedFile is not null);
-        DeleteCommand = new AsyncRelayCommand(_ => DeleteAsync(), () => Ready && SelectedFile?.Entry?.Id is not null);
+        OpenCommand = new AsyncRelayCommand(_ => OpenAsync(), () => Ready && SelectedCount == 1);
+        DeleteCommand = new AsyncRelayCommand(_ => DeleteAsync(), () => Ready && SelectedCount == 1 && SelectedFile?.Entry?.Id is not null);
         ImportCommand = new AsyncRelayCommand(_ => ImportAsync(), () => Ready && _dialogs is not null);
-        SynchronizeCommand = new AsyncRelayCommand(_ => SynchronizeAsync(), () => Ready && SelectedFile?.Entry is not null);
+        SynchronizeCommand = new AsyncRelayCommand(_ => SynchronizeAsync(), () => Ready && SelectedCount == 1 && SelectedFile?.Entry is not null);
         RecoverCommand = new AsyncRelayCommand(_ => MutateAsync(() => _files!.RecoverAsync()), () => Ready);
+        ArchiveCommand = new AsyncRelayCommand(_ => CreateArchiveAsync(), () => Ready && _archives is not null && _archiveDialogs is not null &&
+            SelectedCount > 0 && Selection().All(x => x.Entry is { Id: not null, State: EntryState.Managed }));
+        PreviewArchiveCommand = new AsyncRelayCommand(_ => PreviewArchiveAsync(false), () => CanZip());
+        ExtractArchiveCommand = new AsyncRelayCommand(_ => PreviewArchiveAsync(true), () => CanZip());
+        CancelArchiveCommand = new RelayCommand(_ => _archiveCancellation?.Cancel(), _ => _archiveCancellation is not null);
         Sort();
     }
     private void OnFilesChanged(object? sender, FileChangeNotification e)
@@ -108,7 +136,8 @@ public sealed class FilesViewModel : SectionViewModel
     }
     public override void ResetUserState()
     {
-        _generation++; _refreshQueued = false; base.ResetUserState(); Items.Clear(); SelectedFile = null; _directory = "";
+        _generation++; _archiveCancellation?.Cancel(); _refreshQueued = false; base.ResetUserState(); Items.Clear(); SelectedFile = null; _directory = "";
+        SetSelection([]); OperationStatus = "";
         SearchText = ""; RaisePropertyChanged(nameof(CurrentDirectory)); RaisePropertyChanged(nameof(Breadcrumb));
     }
     public override Task ActivateAsync() => Ready ? LoadAsync(_directory) : Task.CompletedTask;
@@ -120,6 +149,7 @@ public sealed class FilesViewModel : SectionViewModel
             var result = await _files!.ListAsync(directory);
             if (generation != _generation) return;
             SelectedFile = null;
+            SetSelection([]);
             if (!result.Succeeded) { ErrorMessage = result.Message; return; }
             _directory = directory; RaisePropertyChanged(nameof(CurrentDirectory)); RaisePropertyChanged(nameof(Breadcrumb));
             var items = result.Value!.Select(entry => new FileListItem(entry.Name, entry.Kind == FileKind.Directory ? "Папка" :
@@ -191,6 +221,8 @@ public sealed class FilesViewModel : SectionViewModel
         if (entry is null) return;
         if (entry.Id is null) { _dialogs?.Information("Объект не учтён в БД. Сначала явно выполните «Сверить»."); return; }
         if (entry.Kind == FileKind.Directory) { await LoadAsync(entry.RelativePath); return; }
+        if (entry.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && _archives is not null)
+        { await PreviewArchiveAsync(false); return; }
         if (!DocumentValidator.Supports(entry.Name))
         { _dialogs?.Information($"{entry.Name}\n{FileDisplay.Bytes(entry.SizeBytes)}\nРедактор поддерживает TXT, JSON и XML в UTF-8."); return; }
         await Busy(async generation =>
@@ -200,4 +232,50 @@ public sealed class FilesViewModel : SectionViewModel
             if (result.Succeeded) _dialogs?.OpenEditor(result.Value!); else ErrorMessage = result.Message;
         });
     }
+    private FileListItem[] Selection() => _selection.Count > 0 ? _selection.ToArray() : SelectedFile is null ? [] : [SelectedFile];
+    private bool CanZip() => Ready && _archives is not null && _archiveDialogs is not null && SelectedCount == 1 &&
+        SelectedFile?.Entry is { Id: not null, Kind: FileKind.File, State: EntryState.Managed } entry && entry.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+    private async Task CreateArchiveAsync()
+    {
+        var ids = Selection().Select(x => x.Entry!.Id!.Value).ToArray();
+        var target = _archiveDialogs!.ChooseArchiveTarget(false, _directory);
+        if (target is null || _dialogs?.Confirm("Создать ZIP?", $"Архивировать выбранные объекты ({ids.Length}) в «{target.Name}»? Перезапись запрещена.") != true) return;
+        await ArchiveWork((progress, ct) => _archives!.CreateArchiveAsync(ids, target.Directory, target.Name, progress, ct));
+    }
+    private async Task PreviewArchiveAsync(bool extract)
+    {
+        var id = SelectedFile?.Entry?.Id;
+        if (id is null || _archives is null || _archiveDialogs is null) return;
+        ArchivePreview? preview = null;
+        await Busy(async generation =>
+        {
+            var result = await _archives.PreviewArchiveAsync(id.Value);
+            if (generation != _generation) return;
+            if (!result.Succeeded) { ErrorMessage = result.Message; return; }
+            if (_archiveDialogs.ShowArchivePreview(result.Value!, extract) && result.Value!.CanExtract) preview = result.Value;
+        });
+        if (!extract || preview is null) return;
+        var target = _archiveDialogs.ChooseArchiveTarget(true, _directory);
+        if (target is null || _dialogs?.Confirm("Распаковать ZIP?", $"Создать НОВУЮ папку «{target.Name}»? {preview.Summary}") != true) return;
+        await ArchiveWork((progress, ct) => _archives.ExtractArchiveAsync(id.Value, target.Directory, target.Name, preview.Version, progress, ct));
+    }
+    private async Task ArchiveWork(Func<IProgress<ArchiveProgress>, CancellationToken, Task<FileResult<bool>>> action)
+    {
+        if (!Ready) return;
+        var generation = _generation; using var cancellation = new CancellationTokenSource();
+        FileResult<bool>? outcome = null;
+        _archiveCancellation = cancellation; OperationStatus = "Подготовка ZIP…";
+        RaisePropertyChanged(nameof(IsArchiveRunning));
+        var progress = new Progress<ArchiveProgress>(p =>
+        { if (generation == _generation && ReferenceEquals(_archiveCancellation, cancellation)) OperationStatus = $"Подготовлено: {p.Completed}/{p.Total} · {FileDisplay.Bytes(p.Bytes)}; завершение ещё не подтверждено."; });
+        try { await MutateAsync(async () => { outcome = await action(progress, cancellation.Token); return outcome; }); }
+        finally
+        {
+            if (ReferenceEquals(_archiveCancellation, cancellation)) _archiveCancellation = null;
+            RaisePropertyChanged(nameof(IsArchiveRunning));
+            if (generation == _generation) OperationStatus = outcome?.Succeeded == true ? "ZIP-операция завершена, метаданные и аудит подтверждены." : "ZIP-операция не подтверждена. Проверьте сообщение об ошибке.";
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
+    public void Dispose() { _archiveCancellation?.Cancel(); if (_files is not null) _files.Changed -= OnFilesChanged; }
 }

@@ -4,8 +4,8 @@ using SecureFileManager.Core.Results;
 using SecureFileManager.Core.Services;
 namespace SecureFileManager.Core.Files;
 
-public sealed class FileService(IUserSession session, IFileAccessPolicy access, IFileTransactionStore store,
-    IPhysicalFileStorage physical, IAuditService audit, IClock clock) : IFileService
+public sealed partial class FileService(IUserSession session, IFileAccessPolicy access, IFileTransactionStore store,
+    IPhysicalFileStorage physical, IAuditService audit, IClock clock, ZipLimits? zipLimits = null) : IFileService, IArchiveService
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     public event EventHandler<FileChangeNotification>? Changed;
@@ -50,7 +50,8 @@ public sealed class FileService(IUserSession session, IFileAccessPolicy access, 
     }
     private async Task<FileResult<T>> Run<T>(Func<Context, CancellationToken, Task<T>> action, bool recovery, CancellationToken ct)
     {
-        await _gate.WaitAsync(ct);
+        try { await _gate.WaitAsync(ct); }
+        catch (OperationCanceledException) { return new(FileStatus.Cancelled); }
         Context? context = null;
         var transactionCommitted = false;
         var actor = session.Current; var revision = session.Revision;
@@ -84,7 +85,7 @@ public sealed class FileService(IUserSession session, IFileAccessPolicy access, 
             return new(FileStatus.Success, value);
         }
         catch (Exception error) when (error is FileCommandException or FileStoreException or System.IO.IOException or
-            UnauthorizedAccessException or System.Security.SecurityException or OperationCanceledException or ArgumentException)
+            UnauthorizedAccessException or System.Security.SecurityException or OperationCanceledException or ArgumentException or InvalidDataException or NotSupportedException)
         {
             var status = error switch
             {
@@ -92,7 +93,9 @@ public sealed class FileService(IUserSession session, IFileAccessPolicy access, 
                 FileStoreException => FileStatus.DatabaseUnavailable,
                 System.Text.DecoderFallbackException or System.Text.EncoderFallbackException => FileStatus.Unsupported,
                 ArgumentException => FileStatus.Invalid,
-                OperationCanceledException => FileStatus.Conflict, _ => FileStatus.Unavailable
+                OperationCanceledException => FileStatus.Cancelled,
+                InvalidDataException => FileStatus.ArchiveInvalid,
+                NotSupportedException => FileStatus.ArchiveUnsupported, _ => FileStatus.Unavailable
             };
             if (context?.Journal is { } journal)
             {
@@ -111,9 +114,9 @@ public sealed class FileService(IUserSession session, IFileAccessPolicy access, 
                 if (error is FileCommandException { Validation: { } invalid, Format: { } format } && format != DocumentFormat.Txt)
                     if (!await audit.RecordAsync(actor, ValidationType(format), OperationResult.Failed, invalid.Code, CancellationToken.None))
                         status = FileStatus.DatabaseUnavailable;
-                if (!await audit.RecordAsync(actor, status == FileStatus.Denied || status == FileStatus.Invalid ?
+                if (!await audit.RecordAsync(actor, status is FileStatus.Denied or FileStatus.Invalid or FileStatus.ArchiveUnsafe ?
                 OperationType.ACCESS_DENIED : OperationType.OPERATION_FAILED,
-                status == FileStatus.Denied || status == FileStatus.Invalid ? OperationResult.Denied : OperationResult.Failed,
+                status is FileStatus.Denied or FileStatus.Invalid or FileStatus.ArchiveUnsafe ? OperationResult.Denied : OperationResult.Failed,
                 "FILE_COMMAND_" + status, CancellationToken.None)) status = FileStatus.DatabaseUnavailable;
             }
             catch { status = FileStatus.DatabaseUnavailable; }

@@ -42,7 +42,15 @@ public sealed class WpfShellTests
 
     private static void CheckShell()
     {
-        var app = new App();
+        // The Application constructor queues startup automatically. Abort only work posted
+        // by that constructor so layout dispatcher processing cannot launch production login.
+        var constructorWork = new List<DispatcherOperation>();
+        DispatcherHookEventHandler posted = (_, e) => constructorWork.Add(e.Operation);
+        var dispatcher = Dispatcher.CurrentDispatcher; dispatcher.Hooks.OperationPosted += posted;
+        App app;
+        try { app = new App(); }
+        finally { dispatcher.Hooks.OperationPosted -= posted; }
+        foreach (var operation in constructorWork) if (operation.Status == DispatcherOperationStatus.Pending) operation.Abort();
         app.InitializeComponent();
         var trace = new StringWriter();
         var listener = new TextWriterTraceListener(trace);
@@ -71,6 +79,8 @@ public sealed class WpfShellTests
                 var shell = graph.GetRequiredService<MainWindow>();
                 Assert.NotNull(graph.GetRequiredService<Core.Files.IFileService>());
                 Assert.NotNull(graph.GetRequiredService<IFileDialogs>());
+                Assert.Same(graph.GetRequiredService<IFileService>(), graph.GetRequiredService<IArchiveService>());
+                Assert.Same(graph.GetRequiredService<IFileDialogs>(), graph.GetRequiredService<IArchiveDialogs>());
                 login.Close(); shell.Close();
             }
             foreach (var key in new[] { "Icon.Eye", "Icon.Drives", "Icon.Files", "Icon.Archives", "Icon.JsonXml",
@@ -122,6 +132,10 @@ public sealed class WpfShellTests
                     {
                         Assert.Empty(grid.Items);
                         Assert.True(grid.ActualWidth > 0);
+                        var chain = new List<string>();
+                        for (DependencyObject? parent = grid; parent is not null; parent = VisualTreeHelper.GetParent(parent))
+                            if (parent is FrameworkElement element) chain.Add($"{element.GetType().Name}={element.ActualWidth}x{element.ActualHeight} desired={element.DesiredSize}" + (element is Grid g ? " rows=" + string.Join(",", g.RowDefinitions.Select(r => r.ActualHeight)) : ""));
+                        Assert.True(grid.ActualHeight >= 70, $"{section.Title} table: " + string.Join(" > ", chain));
                     }
                     if (export is not null)
                         Export(root, size, 1, Path.Combine(export, $"{index + 1:00}-{size.Width}x{size.Height}-render.png"));
@@ -158,6 +172,7 @@ public sealed class WpfShellTests
             Assert.Empty(filesModel.Items); Assert.Empty(filesModel.SearchText);
             CheckFileDialogsAndImport();
             CheckStructuredBrowserAndEditor(export);
+            CheckArchiveUi(export);
             CheckAuthentication(export);
             Assert.Empty(trace.ToString());
         }
@@ -277,8 +292,15 @@ public sealed class WpfShellTests
             Assert.True(window.TryCloseAsync().GetAwaiter().GetResult());
         }
     }
-    private sealed class FileUiService : IFileService
+    private sealed class FileUiService : IFileService, IArchiveService
     {
+        public IReadOnlyList<Guid> ArchivedIds { get; private set; } = [];
+        public Task<FileResult<bool>> CreateArchiveAsync(IReadOnlyList<Guid> sources, string directory, string name, IProgress<ArchiveProgress>? progress = null, CancellationToken ct = default)
+        { ArchivedIds = sources.ToArray(); return Add(name, false); }
+        public Task<FileResult<ArchivePreview>> PreviewArchiveAsync(Guid id, CancellationToken ct = default) =>
+            Task.FromResult(new FileResult<ArchivePreview>(FileStatus.Success, new([new("TEST.txt", false, 4, 4)], "UI-only")));
+        public Task<FileResult<bool>> ExtractArchiveAsync(Guid id, string directory, string folderName, string expectedVersion, IProgress<ArchiveProgress>? progress = null, CancellationToken ct = default)
+            => Add(folderName, true);
         public Guid Owner { get; set; }
         public event EventHandler<FileChangeNotification>? Changed;
         private readonly List<FileEntry> _entries = [];
@@ -301,6 +323,69 @@ public sealed class WpfShellTests
         public Task<FileResult<bool>> DeleteAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<FileResult<bool>> SynchronizeAsync(string relativePath, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<FileResult<bool>> RecoverAsync(CancellationToken ct = default) => throw new NotSupportedException();
+    }
+    private sealed class ArchiveUiDialogs : IFileDialogs, IArchiveDialogs
+    {
+        public int Previews { get; private set; }
+        public ArchiveTarget? ChooseArchiveTarget(bool extract, string directory) => new(directory, extract ? "TEST-extracted" : "TEST-created.zip");
+        public bool ShowArchivePreview(ArchivePreview preview, bool confirmExtraction) { Previews++; return preview.CanExtract; }
+        public bool Confirm(string title, string message) => true;
+        public string? AskName(bool folder) => null;
+        public ImportSelection? ChooseImport() => null;
+        public void Information(string message) { }
+        public void OpenEditor(TextDocument document) { }
+        public Task<bool> CloseEditorsAsync() => Task.FromResult(true);
+        public bool? ConfirmUnsaved(string name) => null;
+    }
+    private static void CheckArchiveUi(string? export)
+    {
+        var session = new RenderSession(); var service = new FileUiService(); var dialogs = new ArchiveUiDialogs();
+        using var model = new FilesViewModel(service, dialogs); model.UpdateSession(session.Current); service.Owner = session.Current!.Id;
+        service.CreateAsync("", "TEST-a.txt", false).GetAwaiter().GetResult();
+        service.CreateAsync("", "TEST-folder", true).GetAwaiter().GetResult();
+        model.LoadAsync("").GetAwaiter().GetResult();
+        var view = new FilesView { DataContext = model };
+        view.Measure(new Size(900, 600)); view.Arrange(new Rect(0, 0, 900, 600)); view.UpdateLayout();
+        var grid = Descendants(view).OfType<DataGrid>().Single(); Assert.Equal(DataGridSelectionMode.Extended, grid.SelectionMode);
+        grid.SelectedItems.Add(model.Items[0]); grid.SelectedItems.Add(model.Items[1]); view.UpdateLayout();
+        Assert.Equal(2, model.SelectedCount); Assert.True(model.ArchiveCommand.CanExecute(null));
+        Assert.False(model.OpenCommand.CanExecute(null)); Assert.False(model.DeleteCommand.CanExecute(null));
+        model.ArchiveCommand.Execute(null); view.UpdateLayout(); Assert.Equal(2, service.ArchivedIds.Count);
+        Assert.Contains(model.Items, x => x.Name == "TEST-created.zip"); Assert.Null(model.ErrorMessage);
+        grid.SelectedItem = model.Items.Single(x => x.Name.EndsWith(".zip")); view.UpdateLayout();
+        Assert.True(model.PreviewArchiveCommand.CanExecute(null)); model.PreviewArchiveCommand.Execute(null);
+        Assert.Equal(1, dialogs.Previews);
+        model.ExtractArchiveCommand.Execute(null); view.UpdateLayout();
+        Assert.Equal(2, dialogs.Previews); Assert.Contains(model.Items, x => x.Name == "TEST-extracted"); Assert.Null(model.ErrorMessage);
+        var archiveSection = new ArchivesViewModel(service, dialogs); archiveSection.UpdateSession(session.Current);
+        archiveSection.ActivateAsync().GetAwaiter().GetResult();
+        Assert.All(archiveSection.Browser.View.Cast<FileListItem>(), x => Assert.True(x.Entry!.Kind == Core.Entities.FileKind.Directory || x.Name.EndsWith(".zip")));
+        archiveSection.UpdateSession(null); Assert.Empty(archiveSection.Browser.Items); Assert.Empty(archiveSection.Sources.Items);
+        archiveSection.Browser.Dispose(); archiveSection.Sources.Dispose();
+        var safe = new ArchivePreview([new("folder/TEST.txt", false, 4, 4)], "UI-only");
+        var unsafePreview = new ArchivePreview([new("../TEST", false, 1, 1, "Опасный путь")], "UI-only");
+        foreach (var preview in new[] { safe, unsafePreview })
+        {
+            var window = new ArchivePreviewWindow(preview, true); var original = (FrameworkElement)window.Content;
+            window.Content = null; var content = new Border { Background = window.Background, Child = original }; window.Content = content;
+            foreach (var size in new[] { new Size(900, 620), new Size(600, 440) })
+            {
+                content.Width = size.Width; content.Height = size.Height; content.Measure(size); content.Arrange(new Rect(size)); content.UpdateLayout();
+                Assert.Equal(preview.CanExtract, Descendants(content).OfType<Button>().Single(x => x.Content?.ToString()?.StartsWith("Далее") == true).IsEnabled);
+                if (export is not null) Export(content, size, 1.5, Path.Combine(export, $"zip-preview-{preview.CanExtract}-{size.Width}x{size.Height}-150pct-render.png"));
+            }
+            window.Close();
+        }
+        using var folderBrowser = new FilesViewModel(service, directoriesOnly: true); folderBrowser.UpdateSession(session.Current);
+        folderBrowser.LoadAsync("").GetAwaiter().GetResult(); Assert.All(folderBrowser.View.Cast<FileListItem>(), x => Assert.Equal(Core.Entities.FileKind.Directory, x.Entry!.Kind));
+        var target = new ArchiveTargetWindow(new(folderBrowser, "", false)); var targetRoot = (FrameworkElement)target.Content;
+        target.Content = null; var targetContent = new Border { Background = target.Background, Child = targetRoot }; target.Content = targetContent;
+        targetContent.Measure(new Size(600, 440)); targetContent.Arrange(new Rect(0, 0, 600, 440)); targetContent.UpdateLayout();
+        targetContent.Dispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle); targetContent.UpdateLayout();
+        Assert.Contains(Descendants(targetContent).OfType<TextBlock>(), x => x.Text == "TEST-folder");
+        Assert.True(Descendants(targetContent).OfType<DataGrid>().Single().Columns[0].ActualWidth > 0);
+        if (export is not null) Export(targetContent, new Size(600, 440), 1.5, Path.Combine(export, "zip-target-600x440-150pct-render.png"));
+        target.Close();
     }
     private sealed class FileUiDialogs : IFileDialogs
     {

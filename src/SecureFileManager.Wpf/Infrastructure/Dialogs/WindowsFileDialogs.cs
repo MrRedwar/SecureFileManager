@@ -5,9 +5,27 @@ using SecureFileManager.Core.Interfaces;
 using SecureFileManager.Wpf.ViewModels;
 using SecureFileManager.Wpf.Views;
 namespace SecureFileManager.Wpf.Infrastructure.Dialogs;
-public sealed class WindowsFileDialogs(IFileService files, IUserSession session) : IFileDialogs
+public sealed class WindowsFileDialogs(IFileService files, IUserSession session) : IFileDialogs, IArchiveDialogs
 {
     private readonly HashSet<TextEditorWindow> _editors = [];
+    public ArchiveTarget? ChooseArchiveTarget(bool extract, string directory)
+    {
+        var browser = new FilesViewModel(files, directoriesOnly: true); browser.UpdateSession(session.Current);
+        var model = new ArchiveTargetViewModel(browser, directory, extract);
+        var window = new ArchiveTargetWindow(model) { Owner = Application.Current.MainWindow };
+        EventHandler ended = (_, _) => window.Dispatcher.Invoke(() => window.Close());
+        session.Changed += ended;
+        try { return window.ShowDialog() == true ? new(browser.CurrentDirectory, model.Name) : null; }
+        finally { session.Changed -= ended; browser.Dispose(); }
+    }
+    public bool ShowArchivePreview(ArchivePreview preview, bool confirmExtraction)
+    {
+        var window = new ArchivePreviewWindow(preview, confirmExtraction) { Owner = Application.Current.MainWindow };
+        EventHandler ended = (_, _) => window.Dispatcher.Invoke(() => window.Close());
+        session.Changed += ended;
+        try { return window.ShowDialog() == true; }
+        finally { session.Changed -= ended; }
+    }
     public string? AskName(bool folder)
     {
         var dialog = new NameDialog(folder) { Owner = Application.Current.MainWindow };

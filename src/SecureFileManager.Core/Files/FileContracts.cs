@@ -3,7 +3,8 @@ using SecureFileManager.Core.Interfaces;
 
 namespace SecureFileManager.Core.Files;
 
-public enum FileStatus { Success, Denied, Invalid, NotFound, Conflict, Unavailable, DatabaseUnavailable, RecoveryRequired, Unsupported, LimitExceeded, InvalidDocument }
+public enum FileStatus { Success, Denied, Invalid, NotFound, Conflict, Unavailable, DatabaseUnavailable, RecoveryRequired, Unsupported, LimitExceeded, InvalidDocument,
+    ArchiveInvalid, ArchiveUnsupported, ArchiveEncrypted, ArchiveUnsafe, ArchiveLimit, Cancelled }
 public sealed record FileResult<T>(FileStatus Status, T? Value = default, DocumentValidation? Validation = null)
 {
     public bool Succeeded => Status == FileStatus.Success;
@@ -19,10 +20,16 @@ public sealed record FileResult<T>(FileStatus Status, T? Value = default, Docume
         FileStatus.Unsupported => "Поддерживаются TXT, JSON и XML в строгой UTF-8. Проверьте формат и кодировку файла.",
         FileStatus.LimitExceeded => "Превышен лимит: текст — 10 МиБ, импорт — 100 МиБ, список — 10000 объектов.",
         FileStatus.InvalidDocument => "Документ некорректен. Исправьте ошибки перед сохранением.",
+        FileStatus.ArchiveInvalid => "ZIP повреждён: проверьте структуру, размеры и целостность данных.",
+        FileStatus.ArchiveUnsupported => "Этот формат ZIP не поддерживается. Разрешены обычные ZIP (Store/Deflate), без ZIP64 и многотомных архивов.",
+        FileStatus.ArchiveEncrypted => "Зашифрованный ZIP не поддерживается. Используйте незашифрованную копию.",
+        FileStatus.ArchiveUnsafe => "ZIP отклонён: опасный путь, ссылка, дубликат или конфликт структуры.",
+        FileStatus.ArchiveLimit => "Превышен лимит ZIP: 250 записей, 25 МиБ на файл, 100 МиБ всего, коэффициент 100:1.",
+        FileStatus.Cancelled => "Операция отменена. Успешное завершение не подтверждено.",
         _ => "Хранилище недоступно. Проверьте накопитель, свободное место и права доступа."
     });
 }
-public sealed class FileCommandException(FileStatus status, DocumentValidation? validation = null, DocumentFormat? format = null) : Exception("File operation rejected.")
+public sealed class FileCommandException(FileStatus status, DocumentValidation? validation = null, DocumentFormat? format = null, Exception? inner = null) : Exception("File operation rejected.", inner)
 {
     public FileStatus Status { get; } = status;
     public DocumentValidation? Validation { get; } = validation;
@@ -77,17 +84,20 @@ public interface IFileTransactionStore
     Task<T> ExecuteAsync<T>(Guid owner, Func<IFileWork, Task<T>> work, CancellationToken ct);
     Task<bool> HasSuccessAsync(Guid owner, Guid correlationId, CancellationToken ct);
 }
-public enum ChangeKind { Create, Directory, Save, Delete, Import }
+public enum ChangeKind { Create, Directory, Save, Delete, Import, Archive, Extract }
 public sealed record FileJournal(Guid Id, ChangeKind Kind, string RelativePath, bool IsDirectory,
-    string? BeforeVersion, string? AfterVersion);
+    string? BeforeVersion, string? AfterVersion)
+{ public IReadOnlyList<PreparedEntry>? Tree { get; init; } }
 public sealed record PhysicalText(string Content, string Version);
 public interface IFileWorkspace : IDisposable
 {
     IReadOnlyList<PhysicalEntry> List(string directory);
     PhysicalEntry Inspect(string path);
     PhysicalText Read(string path);
+    BinaryDocument OpenBinary(string path, long limit);
     IReadOnlyList<FileJournal> Pending();
     FileJournal Stage(Guid id, ChangeKind kind, string path, string? text = null, string? expected = null, ImportSelection? source = null);
+    FileJournal StageGenerated(Guid id, string path, bool directory, Action<IFilePreparation> prepare, CancellationToken ct);
     void Publish(FileJournal journal);
     void Settle(FileJournal journal, bool committed);
 }

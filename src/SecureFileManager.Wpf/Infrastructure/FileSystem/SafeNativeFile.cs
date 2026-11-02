@@ -25,7 +25,8 @@ internal static class SafeNativeFile
     internal static SafeFileHandle Open(string path, bool directory, bool delete = false)
     {
         // FILE_LIST_DIRECTORY participates in share-access checks; attributes-only handles do not pin renames.
-        var h = CreateFile(path, (directory ? Attributes | 1u : Read) | (delete ? DeleteAccess : 0), directory && !delete ? 3u : 1u,
+        var nativePath = @"\\?\" + Path.GetFullPath(path);
+        var h = CreateFile(nativePath, (directory ? Attributes | 1u : Read) | (delete ? DeleteAccess : 0), directory && !delete ? 3u : 1u,
             IntPtr.Zero, 3, 0x00200000 | (directory ? 0x02000000u : 0), IntPtr.Zero);
         if (h.IsInvalid) { h.Dispose(); Fail(); }
         try
@@ -60,7 +61,7 @@ internal static class SafeNativeFile
     }
     internal static void Rename(SafeFileHandle handle, string destination)
     {
-        var bytes = Encoding.Unicode.GetBytes(Path.GetFullPath(destination));
+        var bytes = Encoding.Unicode.GetBytes(@"\\?\" + Path.GetFullPath(destination));
         var rootOffset = IntPtr.Size == 8 ? 8 : 4;
         var lengthOffset = rootOffset + IntPtr.Size;
         var nameOffset = lengthOffset + 4;
@@ -85,15 +86,23 @@ internal static class SafeNativeFile
         try { Marshal.WriteByte(data, 1); if (!SetFileInformationByHandle(handle, 4, data, 1)) Fail(); }
         finally { Marshal.FreeHGlobal(data); }
     }
-    internal static List<SafeFileHandle> Pin(string directory)
+    internal static List<SafeFileHandle> Pin(string directory, IReadOnlyDictionary<string, SafeFileHandle>? held = null)
     {
         var handles = new List<SafeFileHandle>();
         try
         {
             var full = Path.GetFullPath(directory); var cursor = Path.GetPathRoot(full)!;
-            handles.Add(Open(cursor, true));
+            void Add(string path)
+            {
+                // An already verified exclusive handle is a stronger pin. Reopening it with
+                // FILE_SHARE_DELETE omitted would conflict with our own DELETE access.
+                if (held is not null && held.TryGetValue(path, out var existing) && !existing.IsClosed)
+                { if (!Information(existing).Directory) throw new FileCommandException(FileStatus.Denied); return; }
+                handles.Add(Open(path, true));
+            }
+            Add(cursor);
             foreach (var part in full[cursor.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
-            { cursor = Path.Combine(cursor, part); handles.Add(Open(cursor, true)); }
+            { cursor = Path.Combine(cursor, part); Add(cursor); }
             return handles;
         }
         catch { foreach (var h in handles) h.Dispose(); throw; }
@@ -101,11 +110,12 @@ internal static class SafeNativeFile
     private static void Fail()
     {
         var code = Marshal.GetLastWin32Error();
-        throw new FileCommandException(code switch
+        var failure = new FileCommandException(code switch
         {
             2 or 3 => FileStatus.NotFound, 5 => FileStatus.Denied,
             32 or 33 or 80 or 145 or 183 => FileStatus.Conflict, _ => FileStatus.Unavailable
         });
+        failure.Data["Win32Error"] = code; throw failure;
     }
     [DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern SafeFileHandle CreateFile(string name, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
