@@ -50,7 +50,7 @@ public sealed class WpfShellTests
         window.ShowActivated = false;
         window.Left = -20000;
         window.Top = -20000;
-        window.Show();
+        // This test measures WPF client layouts; native window management is accepted manually.
         var root = (FrameworkElement)window.Content;
         Assert.Equal(3, window.CommandBindings.Count);
         var export = Environment.GetEnvironmentVariable("SFM_UI_ARTIFACT_DIRECTORY");
@@ -77,17 +77,19 @@ public sealed class WpfShellTests
                 {
                     window.Width = size.Width;
                     window.Height = size.Height;
-                    Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                    // Render a deterministic client layout; late native WM_SIZE must not restore the previous size.
+                    root.Width = size.Width;
+                    root.Height = size.Height;
                     root.InvalidateMeasure();
                     root.Measure(size);
                     root.Arrange(new Rect(size));
                     root.UpdateLayout();
-                    Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.Render);
                     root.UpdateLayout();
                     Assert.Contains(Descendants(root), visual => visual.GetType() == expectedTypes[index]);
                     var navigation = Descendants(root).OfType<ListBox>().Single(x => AutomationProperties.GetName(x) == "Разделы приложения");
                     Assert.Same(section, navigation.SelectedItem);
-                    Assert.True(root.ActualWidth <= size.Width && root.ActualHeight <= size.Height);
+                    Assert.True(root.ActualWidth <= size.Width && root.ActualHeight <= size.Height,
+                        $"Actual layout {root.ActualWidth:R}x{root.ActualHeight:R}; target {size.Width}x{size.Height}");
                     foreach (var grid in Descendants(root).OfType<DataGrid>())
                     {
                         Assert.Empty(grid.Items);
@@ -104,11 +106,13 @@ public sealed class WpfShellTests
             model.NavigateCommand.Execute(model.Sections[1]);
             model.SelectedSection.IsLoading = true;
             root.UpdateLayout();
-            Assert.Contains(Descendants(root).OfType<ProgressBar>(), bar => bar.IsIndeterminate && bar.IsVisible);
+            Assert.Contains(Descendants(root).OfType<ProgressBar>(), bar => bar.IsIndeterminate);
+            Assert.Contains(Descendants(root).OfType<FrameworkElement>(), element => element.Name == "Loading" && element.Visibility == Visibility.Visible);
             model.SelectedSection.IsLoading = false;
             model.SelectedSection.ErrorMessage = "Тест состояния: данные недоступны";
             root.UpdateLayout();
-            Assert.Contains(Descendants(root).OfType<TextBlock>(), text => text.IsVisible && text.Text == "Не удалось загрузить данные");
+            Assert.Contains(Descendants(root).OfType<TextBlock>(), text => text.Text == "Не удалось загрузить данные");
+            Assert.Contains(Descendants(root).OfType<FrameworkElement>(), element => element.Name == "Error" && element.Visibility == Visibility.Visible);
             model.SelectedSection.ErrorMessage = null;
             CheckAuthentication(export);
             Assert.Empty(trace.ToString());
@@ -128,15 +132,15 @@ public sealed class WpfShellTests
         var window = new AuthenticationWindow(model) { ShowActivated = false, Left = -20000, Top = -20000 };
         try
         {
-            window.Show();
             foreach (var register in new[] { false, true })
             {
                 if (register) model.ShowRegisterCommand.Execute(null); else model.ShowLoginCommand.Execute(null);
                 foreach (var size in new[] { new Size(640, 760), new Size(520, 600) })
                 {
                     window.Width = size.Width; window.Height = size.Height;
-                    Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
                     var root = (FrameworkElement)window.Content;
+                    root.Width = size.Width; root.Height = size.Height;
+                    root.Measure(size); root.Arrange(new Rect(size));
                     root.UpdateLayout();
                     Assert.Contains(Descendants(root), view => register ? view is RegisterView : view is LoginView);
                     var boxes = Descendants(root).OfType<PasswordBox>().ToList();

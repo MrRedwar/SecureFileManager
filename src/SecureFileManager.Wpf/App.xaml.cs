@@ -29,7 +29,7 @@ public partial class App : Application
                 .AddSingleton(_ => new LoginProtectionPolicy())
                 .AddSingleton<UserSession>()
                 .AddSingleton<IUserSession>(s => s.GetRequiredService<UserSession>())
-                .AddSingleton<PersonalStorage>(_ => PersonalStorage.FromEnvironment())
+                .AddSingleton<PersonalStorage>(_ => PersonalStorage.FromConfiguration())
                 .AddSingleton<IPersonalStorageProvisioner>(s => s.GetRequiredService<PersonalStorage>())
                 .AddSingleton<IPathPolicy>(s => s.GetRequiredService<PersonalStorage>())
                 .AddSingleton<IFileAccessPolicy, PersonalFileAccessPolicy>()

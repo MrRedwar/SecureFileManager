@@ -1,21 +1,24 @@
 # Ручная приёмка этапа 04
 
-Дата подготовки: 01.11.2026. Эти сценарии **ещё не пройдены вручную**.
+Дата подготовки: 01.11.2026. Пользователь 02.11.2026 сообщил о завершении этапа 04.
+Ниже сохранён чек-лист для повторной проверки. Для текущей перенастройки корня
+используйте STORAGE_CONFIGURATION.md: новые БД и миграции не требуются.
 Автоматические доказательства и ограничения — STAGE04_REPORT.md.
 
 ## Подготовка и запуск
 
 1. Открыть существующее SecureFileManager.sln в VS 2022, выбрать Wpf как startup project,
    Debug. Не менять TFM и не пересоздавать решение.
-2. В локальном профиле запуска/окружении отладчика задать SFM_ENVIRONMENT=Development,
-   SFM_CONFIG_DIRECTORY=D:\SecureFileManager\src\SecureFileManager.Wpf. Использовать уже
-   настроенный игнорируемый appsettings.Development.json с Windows Authentication.
-   Не копировать строку подключения в launchSettings.json под Git.
+2. Выбрать профиль **SecureFileManager (Development)** рядом с кнопкой запуска VS.
+   Он задаёт Development и каталог проекта для чтения уже настроенного игнорируемого
+   appsettings.Development.json с Windows Authentication. Строки подключения и секретов
+   в launchSettings.json нет; локальный файл не копируется в bin/publish.
+   После обновления профиля остановить старый экземпляр и запустить приложение заново.
 3. В Development разрешены Encrypt=True;TrustServerCertificate=True только для локального
    SQL Express. Production требует проверки сертификата. TLS не отключать.
 4. Для приёмки выбрать выделенную **новую** БД и отдельный локальный корень хранения.
    Не использовать рабочие данные для опытов с отказами. По умолчанию файлы размещаются
-   в %LOCALAPPDATA%\SecureFileManager\Storage\Users\{UserId}\; для тестовой среды задать
+   под StorageRoot из локального JSON (см. STORAGE_CONFIGURATION.md); для тестовой среды задать
    SFM_STORAGE_ROOT абсолютным путём отдельной тестовой папки вне Git. Не указывать
    корень диска, UNC, junction или сетевой накопитель. Не менять корень между входами.
 5. К новой БД применить обе миграции командой ниже, после проверки имени/отсутствия данных.
@@ -27,13 +30,15 @@ dotnet ef migrations list --project src/SecureFileManager.Data --startup-project
 dotnet ef database update --project src/SecureFileManager.Data --startup-project src/SecureFileManager.Data
 ```
 
-Для запуска без изменения общих профилей VS из PowerShell в корне проекта:
+Для запуска из PowerShell в корне проекта (тот же Development-профиль):
 
 ```powershell
-$env:SFM_ENVIRONMENT = 'Development'
-$env:SFM_CONFIG_DIRECTORY = (Resolve-Path src/SecureFileManager.Wpf).Path
-dotnet run --project src/SecureFileManager.Wpf
+dotnet run --project src/SecureFileManager.Wpf --launch-profile "SecureFileManager (Development)"
 ```
+
+Прямой запуск exe и запуск с --no-launch-profile не активируют Development автоматически.
+Для Production требуется корректная внешняя конфигурация и доверенный сертификат SQL.
+Профиль разработки не используется при публикации приложения.
 
 ## Сценарии приёмки
 

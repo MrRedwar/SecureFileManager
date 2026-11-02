@@ -350,7 +350,8 @@ public sealed class SecurityIntegrationTests(SqlDatabaseFixture database, ITestO
         public string Root { get; }
         public Rig(string connection, string? root)
         {
-            Root = root ?? Path.Combine(Path.GetTempPath(), "SecureFileManager-stage04-tests", Guid.NewGuid().ToString("N"));
+            Root = root ?? Path.Combine(Environment.GetEnvironmentVariable("SFM_STORAGE_TEST_ROOT") ?? Path.GetTempPath(),
+                "SecureFileManager-stage04-tests", Guid.NewGuid().ToString("N"), "Storage");
             Factory = new(connection); Store = new(Factory);
             var provisioner = new PersonalStorage(Root);
             var audit = new SecurityAudit(new OperationRepository(Factory), Clock);

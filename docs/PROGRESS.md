@@ -599,3 +599,107 @@ SQL rollback задокументированы, не выданы за полн
 единственной причиной ограничения; свой проверочный процесс остановлен без ввода данных.
 Финальные проверки Git: diff --check без ошибок, все 81 ссылки перечня файлов существуют,
 HEAD остался 60aa75b, локальная конфигурация и Storage игнорируются.
+
+
+## 2026-11-02 — Исправление подключения при ручном запуске этапа 04
+
+Задача пользователя: устранить «БД недоступна» при регистрации в WPF/VS.
+Исходный Git чистый, HEAD fbd04ee (4 etap). Изучены текущие AGENTS/TECHNICAL_SPEC/TASKS,
+код загрузки конфигурации, csproj, тесты, инструкции запуска и прежние результаты.
+
+Диагностика без секретов:
+- MSSQL$SQLEXPRESS запущен; SecureFileManagerDB доступна через Windows Authentication.
+- Обе миграции присутствуют; sqlcmd с TLS и локальным доверием сертификату успешен,
+  encrypt_option=TRUE.
+- Без локального доверия сервер отклонён: цепочка сертификата не доверена.
+- В Wpf нет профиля запуска, SFM_ENVIRONMENT/SFM_CONFIG_DIRECTORY не заданы.
+  Локальный appsettings.Development.json существует, Windows Authentication/TLS включены,
+  SQL-пароля нет; файл не копируется в bin. Обычный запуск попадал в Production
+  и строгую проверку сертификата вместо ранее согласованной локальной конфигурации.
+
+Исправлено:
+- Добавлен Wpf/Properties/launchSettings.json: профиль SecureFileManager (Development)
+  с окружением и относительным каталогом конфигурации, без строки подключения/секретов.
+- В Wpf.csproj установлен RunWorkingDirectory для SDK 9 CLI, в профиле рабочий каталог
+  VS задан ProjectDir. Локальные настройки читаются из каталога проекта, не копируются.
+- Обновлены STAGE04_MANUAL_TEST, DECISIONS и сводная строка 04 в TASKS
+  (там оставалось устаревшее «Не начат»). Ручная 04.07 остаётся открытой.
+
+Проверки:
+- dotnet build SecureFileManager.sln -c Debug — 0 errors/warnings.
+- dotnet test SecureFileManager.sln -c Debug --no-build с SFM_RUN_SQL_TESTS=1,
+  SFM_ENVIRONMENT=Development — 40/40, 0 skipped; TRX stage04-launch-fix.trx (игнорируется).
+  Регистрация/аудит проверены на новой изолированной БД существующей fixture.
+- dotnet run --project src/SecureFileManager.Wpf --no-build
+  --launch-profile "SecureFileManager (Development)" из корня решения, без предварительных
+  SFM_ENVIRONMENT/SFM_CONFIG_DIRECTORY/SFM_CONNECTION_STRING — запущен именно новый профиль.
+- UI Automation реального WPF-окна подтвердила:
+  «Подключение к БД проверено. Вход требует проверки пароля и аудита».
+  Пароли/логины не вводились, рабочие аккаунты через GUI не создавались.
+- TLS/Production-guard негативные тесты входят в успешный прогон.
+  Миграции, рабочая схема, данные, хеширование и авторизация не менялись.
+
+Исправление подключения готово. Для повторной ручной проверки остановить старый
+экземпляр, выбрать в VS профиль SecureFileManager (Development) и запустить F5.
+Весь этап 04 остаётся Частично до ручной приёмки 04.07. Этап 05 не начат, коммита нет.
+
+
+## 2026-11-02 — Новый физический StorageRoot перед этапом 05
+
+Объём: перенастроить уже перенесённый пользователем Storage, без повторного перемещения,
+удаления файлов, новой БД и изменения User.Id. На старте сохранены незакоммиченные
+изменения предыдущего исправления запуска (TASKS/DECISIONS/PROGRESS/MANUAL/csproj/profile).
+Прочитаны AGENTS, требования Storage/SEC из TECHNICAL_SPEC, TASKS, архитектура,
+конфигурация/DI, адаптер/сервисы и тесты.
+
+Исходная реализация брала только SFM_STORAGE_ROOT либо неявно AppData. Теперь
+StorageConfiguration читает StorageRoot из прежнего appsettings-файла по
+SFM_ENVIRONMENT/SFM_CONFIG_DIRECTORY; непустой SFM_STORAGE_ROOT имеет приоритет.
+В игнорируемом локальном Development JSON задан D:\SecureFileManagerData\Storage,
+остальные параметры, включая SQL, сохранены без вывода секретов. Example содержит
+пустой обязательный StorageRoot. Общая Production-конфигурация локального пути не получила.
+
+App регистрирует PersonalStorage.FromConfiguration; адаптер формирует Users/{GUID}
+и проверяет доступность диска перед mkdir. Нет AppData fallback, нового переноса,
+горячего переключения, изменения ACL или обхода owner/session/path/reparse/SQL-аудита.
+
+Подтверждено read-only:
+- D:\SecureFileManagerData\Storage\Users существует, структура не содержит лишних Storage/Users.
+- В рабочей БД по-прежнему один активный пользователь; его прежний GUID совпадает с папкой.
+  Files=0, обе прежние миграции на месте; пользователь и его Id не менялись.
+- Собранный Wpf-адаптер загрузил реальный JSON с новым StorageRoot и Resolve нашёл каталог
+  без вызова Prepare/mkdir. Время создания каталога сохранилось, файлы не читались.
+- Storage приложения в AppData отсутствовал до/после; Storage внутри Git отсутствует.
+  Игнорируемый read-only probe находится в artifacts/storage-root-check.
+
+Проверки в Windows:
+- dotnet restore — успешно.
+- dotnet build SecureFileManager.sln -c Debug — 0 warnings/errors.
+- dotnet test SecureFileManager.sln -c Debug --no-build — 47/47, 0 skipped.
+  TRX: tests/SecureFileManager.Tests/TestResults/storage-root-change.trx (игнорируется).
+- SQL fixture повторно использовала ранее созданную
+  SecureFileManagerTests_783137af4cea46fbae3bb2495e3782bd по SFM_EXISTING_TEST_DATABASE;
+  создание/миграция для режима reuse запрещены. Новых баз не создавали.
+- SFM_STORAGE_TEST_ROOT=D:\SecureFileManagerData\IsolatedTests: новая регистрация, GUID-папки,
+  конфигурационные файлы, sentinel, junction/hard link — только в изолированных каталогах D:.
+  Тестовые данные оставлены для анализа, пользовательские каталоги не затрагивались.
+- Новые проверки: выбор окружения/override, missing/empty/malformed config, отсутствие
+  fallback, повторное использование папки, сохранность sentinel, недоступный диск,
+  разные GUID и границы. Прежние ownership/session/audit/SQL/reparse тесты проходят.
+
+Выявленные при проверке проблемы тестовой среды исправлены:
+- Старые два persistence-теста считали БД пустой и выбирали все Files/Operations.
+  Теперь запросы ограничены собственными UserId/Id; существующие записи не удаляются.
+- Пустая переменная окружения считается незаданным override, согласованно с SQL-конфигом.
+- Старый WPF-тест зависел от native resize скрытого окна: получал 1440x900 вместо
+  1024x640, desktop pump также зависал. Теперь измеряется логический клиентский layout
+  без Window.Show/desktop pump. Сохранены проверки размеров/ресурсов/привязок и
+  loading/error Visibility. UI приложения не менялся. Native DPI/resize не выдаётся
+  за новую автоматическую проверку.
+
+Обновлены STORAGE_ARCHITECTURE/DECISIONS, создан STORAGE_CONFIGURATION с приоритетами,
+локальным путём, запуском VS и прямого exe, проверками и ручной инструкцией.
+TASKS отражает сообщение пользователя о завершении этапа 04; источник внешней приёмки —
+его текущее поручение, не новый GUI-прогон Codex. Этап 05 остаётся не начат.
+Итог перенастройки: готово. Вручную осталось перезапустить WPF и войти существующим
+пользователем; реальный пароль автоматически не вводился. Коммита нет.

@@ -57,7 +57,7 @@ public sealed class PersistenceTests(SqlDatabaseFixture fixture, ITestOutputHelp
         Assert.True(deleted.IsDeleted);
         Assert.NotNull(deleted.DeletedAtUtc);
         Assert.True((await files.AddAsync(NewFile(user.Id))).IsSuccess);
-        Assert.Equal(2, await db.Files.IgnoreQueryFilters().CountAsync());
+        Assert.Equal(2, await db.Files.IgnoreQueryFilters().CountAsync(x => x.OwnerId == user.Id));
     }
 
     [SqlFact]
@@ -156,19 +156,19 @@ public sealed class PersistenceTests(SqlDatabaseFixture fixture, ITestOutputHelp
         await new OperationRepository(scope).AddAsync(operation);
         await using (var db = scope.CreateDbContext())
         {
-            db.Files.Remove((await db.Files.SingleAsync()));
+            db.Files.Remove((await db.Files.SingleAsync(x => x.Id == file.Id)));
             await db.SaveChangesAsync();
-            Assert.Empty(await db.Files.ToListAsync());
-            Assert.True((await db.Files.IgnoreQueryFilters().SingleAsync()).IsDeleted);
-            Assert.Single(await db.Operations.ToListAsync());
+            Assert.Empty(await db.Files.Where(x => x.OwnerId == user.Id).ToListAsync());
+            Assert.True((await db.Files.IgnoreQueryFilters().SingleAsync(x => x.Id == file.Id)).IsDeleted);
+            Assert.Single(await db.Operations.Where(x => x.UserId == user.Id).ToListAsync());
         }
         await using (var db = scope.CreateDbContext())
         {
-            db.Operations.Remove(await db.Operations.SingleAsync());
+            db.Operations.Remove(await db.Operations.SingleAsync(x => x.Id == operation.Id));
             await Assert.ThrowsAnyAsync<Exception>(() => db.SaveChangesAsync());
         }
         await using (var db = scope.CreateDbContext())
-            Assert.Single(await db.Operations.ToListAsync());
+            Assert.Single(await db.Operations.Where(x => x.UserId == user.Id).ToListAsync());
         await using (var db = scope.CreateDbContext())
         {
             var error = await Assert.ThrowsAsync<SqlException>(() => db.Database.ExecuteSqlInterpolatedAsync(

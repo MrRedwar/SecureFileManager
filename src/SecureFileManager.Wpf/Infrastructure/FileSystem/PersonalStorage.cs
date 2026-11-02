@@ -20,8 +20,7 @@ public sealed class PersonalStorage : IPersonalStorageProvisioner, IPathPolicy
         if (string.Equals(_root, Path.TrimEndingDirectorySeparator(Path.GetPathRoot(_root)!), StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Корень диска нельзя использовать как хранилище.");
     }
-    public static PersonalStorage FromEnvironment() => new(Environment.GetEnvironmentVariable("SFM_STORAGE_ROOT") ??
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SecureFileManager", "Storage"));
+    public static PersonalStorage FromConfiguration() => new(StorageConfiguration.LoadRoot());
 
     public Task<StorageOutcome> PrepareAsync(Guid userId, CancellationToken ct = default) => Task.Run(() =>
     {
@@ -30,6 +29,7 @@ public sealed class PersonalStorage : IPersonalStorageProvisioner, IPathPolicy
         var target = UserRoot(userId);
         try
         {
+            if (!new DriveInfo(Path.GetPathRoot(_root)!).IsReady) return new(StorageStatus.Unavailable);
             CheckChain(target);
             var existed = Directory.Exists(target);
             Directory.CreateDirectory(target);

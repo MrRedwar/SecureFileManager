@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "SecureFileManager (Development)": {
+      "commandName": "Project",
+      "workingDirectory": "$(ProjectDir)",
+      "environmentVariables": {
+        "SFM_ENVIRONMENT": "Development",
+        "SFM_CONFIG_DIRECTORY": "."
+      }
+    }
+  }
+}

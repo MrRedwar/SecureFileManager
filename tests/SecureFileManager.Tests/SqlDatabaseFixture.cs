@@ -18,7 +18,9 @@ public sealed class SqlCollection : ICollectionFixture<SqlDatabaseFixture>;
 
 public sealed class SqlDatabaseFixture : IAsyncLifetime
 {
-    public string DatabaseName { get; } = "SecureFileManagerTests_" + Guid.NewGuid().ToString("N");
+    private readonly string? _existing = Environment.GetEnvironmentVariable("SFM_EXISTING_TEST_DATABASE");
+    public string DatabaseName { get; } = Environment.GetEnvironmentVariable("SFM_EXISTING_TEST_DATABASE") ??
+        "SecureFileManagerTests_" + Guid.NewGuid().ToString("N");
     public string ConnectionString => new SqlConnectionStringBuilder
     {
         DataSource = @".\SQLEXPRESS", InitialCatalog = DatabaseName, IntegratedSecurity = true,
@@ -30,14 +32,23 @@ public sealed class SqlDatabaseFixture : IAsyncLifetime
         if (Environment.GetEnvironmentVariable("SFM_RUN_SQL_TESTS") != "1") return;
         if (Environment.GetEnvironmentVariable("SFM_ENVIRONMENT") != "Development")
             throw new InvalidOperationException("SQL-тесты с локальным доверием сертификату требуют Development.");
+        if (!System.Text.RegularExpressions.Regex.IsMatch(DatabaseName, "^SecureFileManagerTests_[a-f0-9]{32}$"))
+            throw new InvalidOperationException("Разрешена только специально именованная изолированная тестовая БД.");
         var masterString = new SqlConnectionStringBuilder(ConnectionString) { InitialCatalog = "master" }.ConnectionString;
         await using var master = new SqlConnection(masterString);
         await master.OpenAsync();
         await using var command = new SqlCommand("SELECT DB_ID(@name)", master);
         command.Parameters.AddWithValue("@name", DatabaseName);
-        if (await command.ExecuteScalarAsync() is not DBNull)
-            throw new InvalidOperationException("Тестовая БД уже существует: изменения запрещены.");
+        var exists = await command.ExecuteScalarAsync() is not DBNull;
         await using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(ConnectionString).Options);
+        if (_existing is not null)
+        {
+            if (!exists || (await db.Database.GetPendingMigrationsAsync()).Any())
+                throw new InvalidOperationException("Существующая тестовая БД должна быть доступна и иметь актуальную схему. Создание и миграция запрещены.");
+            return;
+        }
+        if (exists)
+            throw new InvalidOperationException("Тестовая БД уже существует: изменения запрещены.");
         await db.Database.MigrateAsync();
         // No EnsureDeleted/DROP: leave the uniquely named empty test database for inspection.
     }
