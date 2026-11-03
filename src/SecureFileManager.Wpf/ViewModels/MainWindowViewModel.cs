@@ -6,6 +6,7 @@ namespace SecureFileManager.Wpf.ViewModels;
 public sealed class MainWindowViewModel : ObservableObject
 {
     public IReadOnlyList<SectionViewModel> Sections { get; }
+    public AuditStatusViewModel AuditStatus => Sections.OfType<JournalViewModel>().Single().Status;
     private readonly IUserSession _session;
     public string SessionStatus => _session.Current?.Username ?? "Не авторизован";
     public bool IsAuthenticated => _session.Current is not null;

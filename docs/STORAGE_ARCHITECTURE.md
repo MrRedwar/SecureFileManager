@@ -463,3 +463,22 @@ Extract создаёт новую папку в выбранном личном 
 uncommitted данных; изменённое дерево сохраняется для разбора. SQL/NTFS остаются двумя ресурсами.
 Планы этапов 05/06 совместимы, новые enum kinds добавлены в конец; SQL-схема не меняется.
 Конкретный StorageRoot и будущие B Locations/grants не менялись. Подробности/ограничения — STAGE07_REPORT.md.
+
+## Этап 08: scoped journal и неразрушающая диагностика
+
+Публичный IJournalService не принимает OwnerId/UserId; текущий пользователь берётся из
+сессии, проверяется в SQL и по Revision. В Data расширен прежний OperationRepository:
+серверные фильтры/сортировка/страницы, без общей выгрузки и нового журнала/схемы.
+AuditHealth/AuditProbe показывают фактическое последнее подтверждение SELECT+INSERT+rollback
+и результаты реальных транзакций, с истечением срока; это не замена mandatory audit.
+
+IStorageDiagnostics — дополнительный интерфейс прежнего singleton FileService. Использует
+те же Windows workspace, lock/pins/path-policy, SQL ownership и Run/error handling.
+Bounded обход обнаруживает untracked/missing/changed/soft-delete physical leftovers,
+неизвестные или pending staging и признаки audit/metadata mismatch. Данные не исправляет,
+не присваивает автоматически, не следует reparse points. До 10000 объектов/записей,
+неполнота явно отмечается. Неизвестный файл в .sfm-internal блокирует обычные операции.
+Recover и явная Synchronize остаются прежними; чужие/изменённые артефакты не удаляются.
+Снимок path ZIP_EXTRACTED сравнивается с Files под fixed collation в запросе, без миграции.
+Нет нового storage root, режима B или NTFS-изоляции от прямого доступа Windows владельца.
+Ограничения и правила разбора — STAGE08_SECURITY_AUDIT.md.

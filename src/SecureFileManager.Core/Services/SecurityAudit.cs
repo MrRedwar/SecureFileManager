@@ -2,13 +2,14 @@ using SecureFileManager.Core.Entities;
 using SecureFileManager.Core.Interfaces;
 namespace SecureFileManager.Core.Services;
 
-public sealed class SecurityAudit(IOperationRepository repository, IClock clock) : IAuditService
+public sealed class SecurityAudit(IOperationRepository repository, IClock clock, Journal.IAuditHealth? health = null) : IAuditService
 {
     public Task<bool> RecordAsync(SessionIdentity? actor, OperationType type, OperationResult result, string code, CancellationToken ct = default) =>
         RecordCoreAsync(actor, type, result, code, ct);
     private async Task<bool> RecordCoreAsync(SessionIdentity? actor, OperationType type, OperationResult result, string code, CancellationToken ct)
     {
         var saved = await repository.AddAsync(Create(clock.UtcNow, actor, type, result, code), ct);
+        if (saved.IsSuccess) health?.Succeeded(); else health?.Failed();
         return saved.IsSuccess;
     }
     public static Operation Create(DateTime now, SessionIdentity? actor, OperationType type, OperationResult result, string code) => new()

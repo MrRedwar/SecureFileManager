@@ -993,3 +993,124 @@ SQL/NTFS не являются распределённо атомарными. 
 
 Код, конфигурация, БД и пользовательские файлы не менялись. По прямому указанию
 пользователя этап 08 не начат, Git-коммит не создавался.
+
+## 03.11.2026 — этап 08: журнал и сквозная безопасность
+
+Новое задание пользователя из вложения разрешило этап 08; запрет относится к 09.
+HEAD перед работой 7c10f83 «7 etap», дерево чистое. Прочитаны актуальные AGENTS/specs/tasks,
+решения/progress/persistence/storage architecture, файловые/auth/editor/ZIP отчёты и ручные
+инструкции 04–07, assets; открыт PNG-концепт. Сверен код четырёх проектов, текущие миграции,
+DI/репозитории/session/KDF/lockout/path-policy/native IO/staging/recovery/Views/VM/tests.
+Презентаций преподавателя ppt/pptx/pdf в репозитории не найдено; их изучение не заявляется.
+
+Реализован IJournalService/JournalService без UI UserId, серверная QueryAsync прежнего
+OperationRepository: owner/type/result/date/search, enum/bool sort, 50 UI rows, HasMore,
+страницы. System UserId=NULL скрыты; active User/Revision проверяются, late results
+отбрасываются. Исходный Details не передаётся UI: только известные безопасные коды,
+локализованные описания; UTC хранится прежним, UI local dates/time. История удалённых Files
+остаётся. JournalView/VM теперь рабочие, с filters/search/paging/loading/empty/error.
+
+AuditHealth/AuditProbe/AuditStatusViewModel — один реальный status для шапки/журнала/настроек:
+Unknown/Checking/Active/Unavailable. SELECT+INSERT+rollback не оставляет fake rows;
+feedback от реального identity/file/audit commit/failure, freshness 2 минуты, UI timer15 с
+без SQL polling. Failure latch до успешной новой пробы, version против запоздалого результата.
+IStorageDiagnostics — alias того же FileService, не второй IO-сервис. Неразрушающий bounded
+обход/SQL до 10000 объектов: untracked/missing/changed/soft-delete remnants, pending staging
+и SQL correlation, audit mismatch. Неисправления явно отображаются, неизвестное не удаляется/
+не присваивается. Неполный обход помечается; без hash baseline одинаковые size/mtime не
+считаются доказательством неизменности. Старые Synchronize/Recover сохранены.
+
+Минимальные исправления: unknown internal file теперь блокирует команды; LOGIN_LOCKED
+уточняет действовавшую блокировку без нового enum; неизвестный подозрительный login payload
+не сохраняется в actor snapshot. Во время разработки выявлен/исправлен SQL collation
+conflict нового diagnostic query через fixed COLLATE (без миграции). Компактная раскрытая
+панель фильтров ограничена прокруткой, чтобы оставалась строка таблицы; добавлена регрессия.
+
+Фактические проверки Windows:
+- SDK9.0.200, VS2022 17.13.35818.85, MSSQL$SQLEXPRESS Running.
+- dotnet restore SecureFileManager.sln — success (после SDK sandbox denial, тот же запуск
+  разрешён вне sandbox). Пакеты/TFM/рабочая конфигурация не менялись.
+- Обычный Debug build — success, 0 warnings/errors.
+- Финальный dotnet build SecureFileManager.sln -c Debug --artifacts-path artifacts/stage08-verify
+  --no-restore -p:RunAnalyzersDuringBuild=true -p:AnalysisLevel=latest — success, 0/0.
+- dotnet list SecureFileManager.sln package --vulnerable --include-transitive — ни один из
+  четырёх проектов не содержит известных уязвимых пакетов по текущим источникам.
+- Первый full 153 passed/3 failed/0 skipped выявил collation; три diagnosis-теста после
+  исправления прошли. Затем full159/159; дополнительный UI layout assert выявил малую
+  высоту таблицы при expanded filters, исправлено и проверено повторно.
+- Финальный scripts/Test-Stage08.ps1 -ArtifactsPath <repo>/artifacts/stage08-verify:
+  160 passed, 0 failed, 0 skipped, 34 с. Все прежние140 + новые20 (15 SQL,5 unit), прежний
+  WPF test расширен DI/status/journal/paging/filter/date/session/layout asserts.
+  TRX: tests/SecureFileManager.Tests/TestResults/stage08.trx (ignored), counters проверены XML.
+- Скрипт/fixture очистили только свои новые run-GUID и GUID-БД. Старые/чужие базы/каталоги
+  не удалялись. Нет реальных bombs/disk filling/остановки общего SQL Engine.
+- Автоматический approval дважды отклонил SQL-прогон, применив прежний запрет на08.
+  После отдельного прямого ответа пользователя «Разрешаю запуск тестов этапа 08» тот же
+  скрипт прошёл approval и выполнен. Обход отказа не использовался.
+- Read-only SELECT рабочей SQL: migrations2, encrypt TRUE, NTLM, Users2/Files9/Operations117
+  на момент проверки. StorageRoot прежний D:/SecureFileManagerData/Storage. Ошибка Windows
+  credentials в sandbox снята разрешённым повтором того же SELECT. Никаких update/drop/delete.
+- Native dotnet run (Development) открыл окно входа; computer-use прочитал статус проверенного
+  подключения. Учётные данные не вводились; навык запрещает автоматизацию auth dialogs.
+  Проверочное окно оставлено на входе: перед обычной пересборкой закрыть его. Текущий финальный
+  код собран в отдельном artifacts/stage08-verify, не перезаписывая открытый exe.
+- WPF STA/RenderTargetBitmap: текущие styles/resources/DI, empty и populated journal,
+  1024×640/1440×900, bitmap150%, без binding errors. Избранные5PNG+README в screenshots/stage08,
+  полные renders в ignored artifacts/stage08-renders. Это не native DPI certification.
+
+Созданы STAGE08_SECURITY_AUDIT (компоненты, 08.01–06, фактическая audit map, угрозы,
+матрица60 сценариев, дефекты, ограничения, полный file list) и STAGE08_MANUAL_TEST (21 шаг,
+status/outage/diagnostics/negative/regression/SELECT). Обновлены TASKS/DECISIONS/
+STORAGE_ARCHITECTURE/FILE_OPERATIONS. Схема/миграции/Data entities не менялись.
+
+08.02/03/05 закрыты по коду и тестам. 08.01/04/06 оставлены открытыми до ручной проверки
+авторизованного журнала/настроек/диагностики/keyboard/native DPI. Общий статус Частично.
+Ограничения: прямой Windows/SQL admin доступ, TOCTOU внешних изменений после snapshot,
+SQL+NTFS не атомарны, physical disk-full/power-loss/отдельный file-symlink не проводились;
+есть безопасные doubles, реальные junction/hardlinks и bounded parsers. PRE-03 открыт.
+Этап 09 не начат. Git-коммитов нет. Рабочие данные/Operations не очищались.
+
+Финальное уточнение 08.06: empty SQL work/пустой Recover не подтверждает audit write.
+ObservedAudit оборачивает тот же репозиторий и отмечает успешный Add; только после commit
+и при наличии Add обновляется Active. EmptyFileTransactionDoesNotClaimAuditWriteAvailability
+проверяет эту границу. Окончательно160/160 (15 новых SQL +5unit), 34 с, без failed/skip.
+Повторный read-only SELECT после тестов: рабочие migrations2/Users2/Files9/Operations117
+совпадают с исходной проверкой. Общий статус и ручные ограничения не изменились.
+
+## 03.11.2026 — ручная проверка журнала и исправление обрезанного описания
+
+Пользователь сообщил, что вручную проверил журнал: в целом он выглядит нормально,
+но текст «Описание» обрезается даже после горизонтальной прокрутки (приложен скриншот).
+Это подтверждение проверки журнала с замечанием, а не безусловная приёмка всего этапа08.
+
+Причина: DataGridTextColumn шириной340 выводил описание одной строкой; продолжение
+обрезалось внутри ячейки. Горизонтальная прокрутка уже достигала границы столбца.
+Исправлено локально в JournalView: template TextBlock с Wrap и полной ToolTip,
+автоматическая высота строки (Double.NaN), минимум48. Общие стили других таблиц,
+сервисы, фильтры, аудит и БД не менялись. Длинный текст теперь занимает несколько строк.
+
+Существующий WpfShellTests расширен проверкой реального layout после ScrollIntoView
+последнего столбца: описание многострочное, целиком помещается в высоту строки,
+ToolTip содержит полное безопасное описание. Первый прогон выявил, что RowHeight="Auto"
+не поддерживается Double-конвертером DataGrid; исправлено на NaN. Финальный Debug
+build в artifacts/stage08-verify и точечный WPF test: 1 passed, 0 failed, 0 skipped,
+без предупреждений компиляции; 4с. SQL-тесты повторно не запускались для XAML-изменения.
+Рендеры — ignored artifacts/stage08-description-renders. Native повтор нового исправления
+ожидается после пересборки. Общий этап08 остаётся Частично, этап09 не начат, коммита нет.
+
+## 03.11.2026 — подтверждение ручной приёмки этапа 08
+
+После исправления обрезанного описания пользователь сообщил: «вроде проблем не заметил.
+отметь что все в порядке». Подтверждение принято как завершение ручной приёмки этапа 08.
+Все 08.01–08.06 закрыты, общий статус — Готово. Предыдущие записи об открытой приёмке
+описывают состояние до этого подтверждения и сохранены как история.
+
+Источник результата — сообщение пользователя; новый GUI/SQL-прогон Codex не выполнялся.
+Отдельный протокол каждого сценария, native DPI и специальных отказов не предоставлен;
+прежние технические ограничения не отменяются. Полный автоматический прогон160/160
+проведён до последнего XAML-исправления, после него затронутый WPF-тест1/1; эти результаты
+не подменяются новым полным прогоном. В этой задаче изменена только документация,
+сборка/тесты повторно не запускались. Проверка: git diff --check.
+
+Этап 09 не начат. Git-коммит не создавался. Код, конфигурация, БД и пользовательские
+файлы в этой документационной задаче не менялись.

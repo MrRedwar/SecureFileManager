@@ -128,8 +128,11 @@ public sealed partial class WindowsFileStorage(PersonalStorage roots) : IPhysica
         public IReadOnlyList<FileJournal> Pending()
         {
             var items = new List<FileJournal>();
+            foreach (var file in Directory.EnumerateFiles(_internal))
+                if (Path.GetFileName(file) is not ("owner" or "lock")) throw new FileCommandException(FileStatus.RecoveryRequired);
             foreach (var path in Directory.EnumerateDirectories(_internal))
             {
+                if (items.Count >= 250) throw new FileCommandException(FileStatus.RecoveryRequired);
                 if (!Guid.TryParseExact(Path.GetFileName(path), "N", out var id)) throw new FileCommandException(FileStatus.RecoveryRequired);
                 PinDirectory(path);
                 SafeFileHandle manifest;

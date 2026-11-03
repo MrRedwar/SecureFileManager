@@ -7,6 +7,27 @@ namespace SecureFileManager.Data.Repositories;
 
 public sealed class FileRepository(IDbContextFactory<AppDbContext> factory) : RepositoryBase(factory), IFileRepository
 {
+    public Task<RepositoryResult<IReadOnlyList<Core.Files.DiagnosticRecord>>> DiagnosticAsync(Guid ownerId, CancellationToken ct = default) =>
+        ExecuteAsync<IReadOnlyList<Core.Files.DiagnosticRecord>>(async db =>
+        {
+            if (ownerId == Guid.Empty) return RepositoryResult<IReadOnlyList<Core.Files.DiagnosticRecord>>.Fail(RepositoryStatus.Validation);
+            var rows = await db.Files.IgnoreQueryFilters().AsNoTracking().Where(x => x.OwnerId == ownerId)
+                .OrderBy(x => x.Id).Take(Core.Files.FileRules.ListLimit + 1)
+                .Select(file => new Core.Files.DiagnosticRecord(file,
+                    db.Operations.Any(o => o.UserId == ownerId && o.Result == OperationResult.Success &&
+                        (o.FileId == file.Id && (o.OperationType == OperationType.FILE_CREATED || o.OperationType == OperationType.FILE_UPDATED ||
+                            o.OperationType == OperationType.FILE_DELETED || o.OperationType == OperationType.DIRECTORY_CREATED ||
+                            o.OperationType == OperationType.ZIP_CREATED) || o.OperationType == OperationType.ZIP_EXTRACTED && o.TargetPathSnapshot != null &&
+                            (file.RelativePath == EF.Functions.Collate(o.TargetPathSnapshot, "Latin1_General_100_CI_AS") ||
+                             file.RelativePath.StartsWith(EF.Functions.Collate(o.TargetPathSnapshot, "Latin1_General_100_CI_AS") + "/")))),
+                    db.Operations.Where(o => o.UserId == ownerId && o.FileId == file.Id && o.Result == OperationResult.Success &&
+                        (o.OperationType == OperationType.FILE_CREATED || o.OperationType == OperationType.FILE_UPDATED ||
+                         o.OperationType == OperationType.FILE_DELETED || o.OperationType == OperationType.DIRECTORY_CREATED))
+                        .OrderByDescending(o => o.OccurredAtUtc).ThenByDescending(o => o.Id)
+                        .Select(o => o.OperationType == OperationType.FILE_DELETED).FirstOrDefault()))
+                .ToListAsync(ct);
+            return RepositoryResult<IReadOnlyList<Core.Files.DiagnosticRecord>>.Ok(rows);
+        }, ct);
     public Task<RepositoryResult<FileRecord>> AddAsync(FileRecord file, CancellationToken cancellationToken = default) =>
         ExecuteAsync<FileRecord>(async db =>
         {

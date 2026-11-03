@@ -8,7 +8,7 @@ using SecureFileManager.Core.Results;
 using SecureFileManager.Data.Repositories;
 namespace SecureFileManager.Data.Identity;
 
-public sealed class IdentityStore(IDbContextFactory<AppDbContext> factory) : IIdentityStore
+public sealed class IdentityStore(IDbContextFactory<AppDbContext> factory, Core.Journal.IAuditHealth? health = null) : IIdentityStore
 {
     public async Task<AuthOutcome> ExecuteAsync(Func<IIdentityTransaction, Task<IdentityDecision>> action, CancellationToken ct)
     {
@@ -19,9 +19,12 @@ public sealed class IdentityStore(IDbContextFactory<AppDbContext> factory) : IId
                 await using var db = await factory.CreateDbContextAsync(ct);
                 await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
                 var decision = await action(new IdentityTransaction(db, transaction));
-                if (!decision.Commit) { await transaction.RollbackAsync(ct); return decision.Outcome; }
+                if (!decision.Commit) { await transaction.RollbackAsync(ct);
+                    if (decision.Outcome.Status == AuthStatus.InfrastructureError) health?.Failed();
+                    return decision.Outcome; }
                 await db.SaveChangesAsync(ct);
                 await transaction.CommitAsync(ct);
+                health?.Succeeded();
                 return decision.Outcome;
             }
             catch (Exception ex) when (IsDeadlock(ex) && attempt < 2) { ct.ThrowIfCancellationRequested(); }
@@ -29,7 +32,7 @@ public sealed class IdentityStore(IDbContextFactory<AppDbContext> factory) : IId
             { return new(AuthStatus.Conflict, "Этот логин уже занят."); }
             catch (Exception ex) when (ex is SqlException or DbUpdateException or PersistenceValidationException ||
                 ex is InvalidOperationException)
-            { return AuthOutcome.Infrastructure(); }
+            { health?.Failed(); return AuthOutcome.Infrastructure(); }
         }
     }
     private static bool IsDeadlock(Exception? error)

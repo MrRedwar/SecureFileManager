@@ -172,3 +172,17 @@ Store/Deflate читаются, создание — Store; ZIP64/encrypted/mult
 Симлинки/special entries и физические reparse/hard links отвергаются. Безопасность от
 привилегированного локального обхода и любого power loss не обещается.
 Полный алгоритм, тесты и ручная инструкция — STAGE07_REPORT.md / STAGE07_MANUAL_TEST.md.
+
+## Этап 08 — неразрушающая проверка
+
+Настройки → «Проверить хранилище без исправлений» вызывает IStorageDiagnostics того же FileService.
+Прежние Run/owner SQL transaction/workspace lock/pins/path-policy применяются и здесь. До 10000
+записей/физических объектов; при лимите или недоступной ветви отчёт неполный. Files включает
+soft-delete, сопоставляется с физическими объектами и audit mutations/ZIP extraction ancestry.
+Pending plans дополнены сведением о SQL FILE_TX_* success; incomplete/unknown staging сохраняется.
+Диагностика не удаляет/не присваивает файлы, не меняет Files и не вызывает Settle; записывает
+только собственное FILE_READ/STORAGE_DIAGNOSED или STORAGE_DIAGNOSIS_PARTIAL.
+Старый «Сверить» и Recover остаются явными действиями с прежними защитными условиями.
+Unknown internal file также блокирует обычные команды; удалять .sfm-internal вручную нельзя.
+Контент с тем же size/mtime без baseline hash диагностикой не определяется. Подробный протокол
+и безопасная ручная проверка — STAGE08_SECURITY_AUDIT.md / STAGE08_MANUAL_TEST.md.

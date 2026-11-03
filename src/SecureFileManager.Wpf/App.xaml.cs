@@ -40,6 +40,10 @@ public partial class App : Application
     {
         return new ServiceCollection().AddSecureFileManagerData()
                 .AddSingleton<IClock, SystemClock>()
+                .AddSingleton<Core.Journal.AuditHealth>()
+                .AddSingleton<Core.Journal.IAuditHealth>(s => s.GetRequiredService<Core.Journal.AuditHealth>())
+                .AddSingleton<Core.Journal.IJournalService, Core.Journal.JournalService>()
+                .AddSingleton<AuditStatusViewModel>()
                 .AddSingleton<IPasswordSecurity>(_ => new PasswordSecurity())
                 .AddSingleton(_ => new LoginProtectionPolicy())
                 .AddSingleton<UserSession>()
@@ -51,6 +55,7 @@ public partial class App : Application
                 .AddSingleton<FileService>()
                 .AddSingleton<IFileService>(s => s.GetRequiredService<FileService>())
                 .AddSingleton<IArchiveService>(s => s.GetRequiredService<FileService>())
+                .AddSingleton<IStorageDiagnostics>(s => s.GetRequiredService<FileService>())
                 .AddSingleton<IDriveService, WindowsDriveService>()
                 .AddSingleton<WindowsFileDialogs>()
                 .AddSingleton<IFileDialogs>(s => s.GetRequiredService<WindowsFileDialogs>())

@@ -7,6 +7,7 @@ namespace SecureFileManager.Core.Interfaces;
 // This persistence contract performs no physical filesystem operations.
 public interface IFileRepository
 {
+    Task<RepositoryResult<IReadOnlyList<Files.DiagnosticRecord>>> DiagnosticAsync(Guid ownerId, CancellationToken ct = default);
     Task<RepositoryResult<FileRecord>> AddAsync(FileRecord file, CancellationToken cancellationToken = default);
     Task<RepositoryResult<FileRecord>> GetByIdAsync(Guid ownerId, Guid id, CancellationToken cancellationToken = default);
     Task<RepositoryResult<FileRecord>> GetByPathAsync(Guid ownerId, string relativePath, CancellationToken cancellationToken = default);

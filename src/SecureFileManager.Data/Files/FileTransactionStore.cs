@@ -9,7 +9,7 @@ using SecureFileManager.Data.Repositories;
 
 namespace SecureFileManager.Data.Files;
 
-public sealed class FileTransactionStore(IDbContextFactory<AppDbContext> factory) : IFileTransactionStore
+public sealed class FileTransactionStore(IDbContextFactory<AppDbContext> factory, Core.Journal.IAuditHealth? health = null) : IFileTransactionStore
 {
     public async Task<T> ExecuteAsync<T>(Guid owner, Func<IFileWork, Task<T>> work, CancellationToken ct)
     {
@@ -21,15 +21,19 @@ public sealed class FileTransactionStore(IDbContextFactory<AppDbContext> factory
             var active = await db.Users.FromSqlInterpolated(
                 $"SELECT * FROM [Users] WITH (UPDLOCK,HOLDLOCK) WHERE [Id] = {owner}").SingleOrDefaultAsync(ct);
             if (active is not { IsActive: true }) throw new FileCommandException(FileStatus.Denied);
-            var result = await work(new Work(db, transaction, owner));
+            var context = new Work(db, transaction, owner);
+            var result = await work(context);
             ct.ThrowIfCancellationRequested();
             committing = true;
             await transaction.CommitAsync(ct);
+            if (context.Audited) health?.Succeeded();
             return result;
         }
         catch (Exception ex) when (ex is SqlException or DbUpdateException or InvalidOperationException)
-        { throw new FileStoreException(committing); }
-        catch (OperationCanceledException) when (committing) { throw new FileStoreException(true); }
+        { health?.Failed(); throw new FileStoreException(committing); }
+        catch (FileCommandException ex) when (ex.Status == FileStatus.DatabaseUnavailable)
+        { health?.Failed(); throw; }
+        catch (OperationCanceledException) when (committing) { health?.Failed(); throw new FileStoreException(true); }
     }
     public async Task<bool> HasSuccessAsync(Guid owner, Guid correlationId, CancellationToken ct)
     {
@@ -50,13 +54,27 @@ public sealed class FileTransactionStore(IDbContextFactory<AppDbContext> factory
         private readonly Guid _owner;
         public IFileRepository Files { get; }
         public IOperationRepository Audit { get; }
+        public bool Audited { get; private set; }
         public Work(AppDbContext db, IDbContextTransaction transaction, Guid owner)
         {
             _db = db; _owner = owner;
             var joined = new Joined(db, transaction);
-            Files = new FileRepository(joined); Audit = new OperationRepository(joined);
+            Files = new FileRepository(joined); Audit = new ObservedAudit(new OperationRepository(joined), () => Audited = true);
         }
         public Task<bool> HasSuccessAsync(Guid correlationId, CancellationToken ct) => Committed(_db, _owner, correlationId, ct);
+    }
+    private sealed class ObservedAudit(IOperationRepository inner, Action recorded) : IOperationRepository
+    {
+        public async Task<Core.Results.RepositoryResult<Operation>> AddAsync(Operation item, CancellationToken cancellationToken = default)
+        {
+            var result = await inner.AddAsync(item, cancellationToken);
+            if (result.IsSuccess) recorded();
+            return result;
+        }
+        public Task<Core.Results.RepositoryResult<IReadOnlyList<Operation>>> GetForUserAsync(Guid userId, int take = 100,
+            CancellationToken cancellationToken = default) => inner.GetForUserAsync(userId, take, cancellationToken);
+        public Task<Core.Results.RepositoryResult<Core.Journal.JournalPage>> QueryAsync(Guid userId, Core.Journal.JournalQuery query,
+            CancellationToken ct = default) => inner.QueryAsync(userId, query, ct);
     }
     private sealed class Joined(AppDbContext parent, IDbContextTransaction transaction) : IDbContextFactory<AppDbContext>
     {

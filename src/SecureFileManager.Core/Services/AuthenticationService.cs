@@ -43,8 +43,9 @@ public sealed class AuthenticationService(IIdentityStore store, IPasswordSecurit
                     }
                     var audit = await SecurityAudit.InTransactionAsync(tx, now, actor,
                         OperationType.LOGIN_FAILED, OperationResult.Failed,
-                        eligible ? "INVALID_PASSWORD_COUNTED" : "INVALID_CREDENTIALS", ct,
-                        actor is null && IdentityValidation.ValidUsername(username) ? username : null);
+                        user?.LockoutUntilUtc > now ? "LOGIN_LOCKED" : eligible ? "INVALID_PASSWORD_COUNTED" : "INVALID_CREDENTIALS", ct,
+                        actor is null && IdentityValidation.ValidUsername(username) &&
+                            username.All(c => char.IsLetterOrDigit(c) || c is '_' or '-' or '.') ? username : null);
                     return new(audit ? AuthOutcome.Invalid() : AuthOutcome.Infrastructure(), audit);
                 }
                 user!.FailedLoginCount = 0;

@@ -80,6 +80,8 @@ public sealed class WpfShellTests
                 Assert.NotNull(graph.GetRequiredService<Core.Files.IFileService>());
                 Assert.NotNull(graph.GetRequiredService<IFileDialogs>());
                 Assert.Same(graph.GetRequiredService<IFileService>(), graph.GetRequiredService<IArchiveService>());
+                Assert.Same(graph.GetRequiredService<IFileService>(), graph.GetRequiredService<IStorageDiagnostics>());
+                Assert.Same(graph.GetRequiredService<JournalViewModel>().Status, graph.GetRequiredService<SettingsViewModel>().Status);
                 Assert.Same(graph.GetRequiredService<IFileDialogs>(), graph.GetRequiredService<IArchiveDialogs>());
                 login.Close(); shell.Close();
             }
@@ -173,6 +175,7 @@ public sealed class WpfShellTests
             CheckFileDialogsAndImport();
             CheckStructuredBrowserAndEditor(export);
             CheckArchiveUi(export);
+            CheckJournalUi(export);
             CheckAuthentication(export);
             Assert.Empty(trace.ToString());
         }
@@ -184,6 +187,58 @@ public sealed class WpfShellTests
         }
     }
 
+    private sealed class JournalUiService : Core.Journal.IJournalService
+    {
+        public Core.Journal.JournalQuery? Last { get; private set; }
+        public Task CheckHealthAsync(CancellationToken ct = default) => Task.CompletedTask;
+        public Task<Core.Results.RepositoryResult<Core.Journal.JournalPage>> GetAsync(Core.Journal.JournalQuery query, CancellationToken ct = default)
+        {
+            Last = query;
+            return Task.FromResult(Core.Results.RepositoryResult<Core.Journal.JournalPage>.Ok(new([
+                new Core.Entities.Operation { UserId = Guid.NewGuid(), OperationType = Core.Entities.OperationType.FILE_CREATED,
+                    Result = Core.Entities.OperationResult.Success, TargetPathSnapshot = "TEST-journal.txt", Details = "FILE_TX_Create" },
+                new Core.Entities.Operation { OperationType = Core.Entities.OperationType.ACCESS_DENIED, Result = Core.Entities.OperationResult.Denied }
+            ], query.Page == 0)));
+        }
+    }
+    private static void CheckJournalUi(string? export)
+    {
+        var service = new JournalUiService(); var clock = new Core.Services.SystemClock(); var health = new Core.Journal.AuditHealth(clock);
+        using var status = new AuditStatusViewModel(health);
+        var model = new JournalViewModel(service, status); model.UpdateSession(new RenderSession().Current);
+        model.LoadAsync().GetAwaiter().GetResult(); Assert.Equal(2, model.Items.Count);
+        var view = new JournalView { DataContext = model }; var size = new Size(690, 300);
+        var canvas = new Border { Background = (Brush)Application.Current.FindResource("Brush.Sand100"), Child = view };
+        canvas.Measure(size); canvas.Arrange(new Rect(size)); canvas.UpdateLayout();
+        var grid = Descendants(view).OfType<DataGrid>().Single(); Assert.True(grid.IsReadOnly); Assert.False(grid.CanUserSortColumns);
+        Assert.Equal(2, grid.Items.Count); Assert.True(model.NextCommand.CanExecute(null));
+        model.NextCommand.Execute(null); Assert.Equal(1, service.Last!.Page); Assert.False(model.NextCommand.CanExecute(null));
+        model.PreviousCommand.Execute(null); Assert.Equal(0, service.Last.Page);
+        model.SearchText = "TEST"; model.FromDate = new DateTime(2026, 11, 1); model.UntilDate = new DateTime(2026, 11, 2);
+        model.ResultIndex = 2; model.Descending = false; model.RefreshCommand.Execute(null);
+        Assert.Equal(Core.Entities.OperationResult.Denied, service.Last.Result); Assert.False(service.Last.Descending);
+        Assert.Equal(DateTimeKind.Utc, service.Last.FromUtc!.Value.Kind);
+        Assert.Equal(DateTimeKind.Utc, service.Last.UntilUtc!.Value.Kind);
+        Assert.Equal("TEST", service.Last.Search);
+        // Scroll to the final column: horizontal scrolling cannot reveal text clipped inside a fixed-width cell.
+        canvas.Measure(size); canvas.Arrange(new Rect(size)); canvas.UpdateLayout();
+        grid.ScrollIntoView(model.Items[1], grid.Columns[^1]);
+        canvas.Dispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle); canvas.UpdateLayout();
+        var description = Descendants(grid).OfType<TextBlock>().First(x => ReferenceEquals(x.DataContext, model.Items[1]) && x.Text == model.Items[1].Description);
+        Assert.True(description.ActualHeight > 30, "Long audit descriptions must be readable on multiple lines.");
+        Assert.Equal(model.Items[1].Description, description.ToolTip);
+        var row = (DataGridRow)grid.ItemContainerGenerator.ContainerFromItem(model.Items[1]);
+        Assert.True(row.ActualHeight >= description.ActualHeight + 8, "The complete wrapped description must fit in the row.");
+        foreach (var expanded in new[] { false, true })
+        {
+            Descendants(view).OfType<Expander>().Single().IsExpanded = expanded;
+            canvas.Measure(size); canvas.Arrange(new Rect(size)); canvas.UpdateLayout();
+            Assert.True(grid.ActualHeight >= 85, "Journal filters must leave a scrollable table.");
+            if (export is not null) Export(canvas, size, 1.5, Path.Combine(export, $"journal-populated-filters-{expanded}-150pct-render.png"));
+        }
+        health.Failed(); Assert.Contains("недоступен", model.Status.Text);
+        model.UpdateSession(null); Assert.Empty(model.Items); Assert.Empty(model.SearchText);
+    }
     private static void CheckFileDialogsAndImport()
     {
         foreach (var folder in new[] { false, true })

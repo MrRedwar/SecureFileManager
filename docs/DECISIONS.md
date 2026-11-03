@@ -508,3 +508,46 @@ WPF использует прежний FilesView/VM: Extended selection, сущ
 любого power loss/контроллера. Реальный full disk и отдельная file symlink не воспроизводились;
 есть контролируемые IO/SQL faults, реальная junction/hard link и reparse-политика.
 Режим B, этап 08, новые сетевые службы/пакеты и Git-коммит не выполнялись.
+
+## Этап 08 — журнал и диагностическая сверка, 03.11.2026
+
+Схема/enum/миграции не меняются. IJournalService получает пользователя только из IUserSession,
+проверяет SQL active User и Revision после awaits. OperationRepository.QueryAsync выполняет
+owner/type/result/UTC date/search predicates, whitelist bool sort и Skip/Take на SQL Server.
+До 100 строк по контракту, UI 50; максимум 10001 страниц. HasMore определяется extra-row,
+не полной загрузкой Operations. Системные UserId=NULL остаются вне пользовательского UI.
+Дата «по» включительна в локальном календаре, SQL получает исключительную UTC-границу.
+Динамический SQL не вводится. Сортировка отдельных колонок DataGrid отключена, чтобы
+локальная сортировка страницы не притворялась сортировкой всей истории.
+
+Журнал не выводит исходные Details. JournalService пропускает только известные безопасные
+коды для локализованных описаний, остальное скрывает, не меняя исходную Operations.
+Подозрительный несуществующий логин с символами вне letters/digits/._- не сохраняется
+в ActorNameSnapshot; остаётся nullable системное LOGIN_FAILED. Для существующего пользователя
+сохраняется его подтверждённое имя. Блокировка уже работала; LOGIN_LOCKED уточняет её событие
+в прежнем LOGIN_FAILED. KDF, формат паролей и параметры production не меняются.
+
+IAuditHealth — общий singleton; probe SELECT+реальная INSERT внутри rollback-транзакции
+проверяет права/constraints/triggers и не оставляет synthetic audit row. Реальные транзакции
+и SecurityAudit дают commit/error feedback. Ошибка latched до новой успешной полной пробы,
+старый probe не перекрывает более свежую ошибку. Active устаревает через 2 мин; UI timer15 с
+только перечитывает snapshot, нет фонового SQL polling/службы. Это не гарантия будущего commit.
+
+IStorageDiagnostics реализуется тем же FileService/Run/workspace/owner transaction. Диагностика
+не исправляет Files/пользовательские данные/историю, только создаёт собственный FILE_READ audit.
+До 10000 физических объектов и записей (10001 для обнаружения превышения), отчет явно неполный
+при ошибках/усечении. Включены soft-delete, untracked/missing/type-size-mtime mismatch, audit
+mutation relationship (включая потомков ZIP_EXTRACTED) и pending plans/SQL success correlation.
+При разных collation Files и Operations сравнение snapshot явно COLLATE Latin1_General_100_CI_AS,
+без миграции. Unknown internal files теперь блокируют обычные операции вместо игнорирования.
+Автоматического удаления/присвоения/подчистки нет. Старая явная Synchronize/Recover сохранена.
+
+Сверка без stored hash baseline не определяет изменение байтов с тем же size/mtime и не
+доказывает историческую целостность БД. Snapshot может устареть; перед каждым изменением
+сохраняются собственные session/owner/path/handle/version checks. SQL и NTFS — разные ресурсы.
+Новый контроль не обещает защиту от того же Windows token/администратора с прямым SQL/диском.
+Подробности: STAGE08_SECURITY_AUDIT.md и STAGE08_MANUAL_TEST.md. Этап 09 не начинается.
+
+Файловая транзакция подтверждает health только если ObservedAudit прежнего OperationRepository
+выполнил Add и commit подтверждён. Пустой Recover/SQL work не доказывает возможность INSERT
+в Operations и не переключает Unknown в Active. Это закреплено отдельным SQL-тестом.
