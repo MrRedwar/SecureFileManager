@@ -1,0 +1,6 @@
+{
+  "project": "Secure File Manager",
+  "purpose": "Учебная демонстрация",
+  "items": ["TXT", "JSON", "XML", "ZIP"],
+  "demo": true
+}

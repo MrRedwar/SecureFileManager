@@ -1,5 +1,69 @@
 # Журнал фактического прогресса
 
+## 2026-11-03 — Заключительный этап 09–10 (текущий итог)
+
+Поручение пользователя объединяет 09 и 10. Исходное дерево чистое, HEAD 598b175,
+предыдущие commits 7c10f83/2410ae0/01893f4. Сверены документы, четыре проекта,
+security/auth/session/storage/CRUD/import/editor/XML/ZIP/journal/error paths,
+EF mapping/две миграции, DI/VM/XAML/resources и существующая тестовая база.
+README/итоговых архитектуры/отчёта не было; подготовлены сейчас. PNG-концепт открыт.
+Работающие код/XAML/схема/пакеты/тесты не менялись, новые дублирующие тесты не нужны.
+
+Фактические проверки Windows 10 x64, SDK9.0.200, VS2022 17.13.1, SQL Express Running:
+
+- dotnet restore SecureFileManager.sln — PASS после разрешённого доступа к Windows SDK.
+  В sandbox MSB4184 (нет доступа к AppData/Local/Microsoft SDKs).
+- Первый Debug --no-restore с новым artifacts/final-verify дал NETSDK1004; повтор
+  dotnet build SecureFileManager.sln -c Debug --artifacts-path artifacts/final-verify
+  с restore — PASS, 0 warnings/errors, 15.14 с. Это ошибка команды, не кода.
+- scripts/Test-Stage08.ps1 -ArtifactsPath D:/SecureFileManager/artifacts/final-verify —
+  PASS 160/160, 0 failed/skipped, 35 с VSTest, 37.428 с по TRX start/finish.
+  78 SQL integration, 82 прочих cases (включая WPF/Windows FS). Только новая GUID-БД
+  fixture и TEMP/SecureFileManager.Stage08/run-c05278e59dca4d97b09b0d2d5cc6e5ec.
+  Cleanup собственного запуска подтверждён. Рабочий Storage/БД и чужие тестовые
+  каталоги/БД не удалялись. Скрипт сообщил перезапись своего фиксированного stage08.trx;
+  текущий результат дополнительно сохранён artifacts/final-evidence/final-debug.trx.
+  Все 160 имён/исходников/результатов сохранены в docs/TEST_INVENTORY.md.
+- dotnet build SecureFileManager.sln -c Release --artifacts-path artifacts/final-verify —
+  PASS, 0 warnings/errors, 7.63 с. Полный Release SQL test NOT RUN, ненужный дубль.
+- dotnet tool restore — PASS, dotnet-ef9.0.22. EF has-pending-model-changes с Data startup,
+  Release — PASS, model changes нет. database update над рабочей БД не выполнялся.
+- dotnet publish src/SecureFileManager.Wpf/SecureFileManager.Wpf.csproj -c Release
+  --artifacts-path artifacts/final-verify --self-contained false
+  -o artifacts/publish/final-win --no-restore — PASS. Проверен состав: нет Development
+  конфига, БД, Storage/demo; WPF XAML/PNG встроены, runtime dependencies присутствуют.
+- Read-only SELECT SQL ProductVersion/Edition — 15.0.2000.5 Express64. ODBC sandbox
+  не получил Windows credentials, разрешённый повтор успешен; секреты не выводились.
+- Опубликованный exe запущен из TEMP с абсолютным внешним config directory,
+  обнаружены процесс30348 и окно «Secure File Manager — вход». Auth не автоматизировалась.
+  Live capture BLOCKED: FrameArrived timeout, повтор после reselection/activation —
+  window capture timeout. Содержимое/статус подключения native окна и screenshots
+  не подтверждены. Чистая установка NOT RUN, финальный native DPI/keyboard NOT RUN.
+
+Созданы README, ARCHITECTURE (реальная схема/диаграммы/контракты/security), TEST_REPORT
+(T01–T20, SEC, regression, ограничения), TEST_INVENTORY, SCREENSHOT_CHECKLIST (20 кадров),
+STAGE09_10_MANUAL_TEST, DEMO_SCENARIO (12 шагов), FINAL_REPORT_DRAFT; demo содержит
+только новые искусственные TXT/JSON/XML/некорректные документы/безвредный DTD/ZIP.
+Demo ZIP Store проверен по двум entries/размерам; auto-seed/копирования рабочего Storage нет.
+TASKS/DECISIONS обновлены фактически. История 09 сохранена; 09.01/05/06 и
+10.01/02/04/05 закрыты, остальные пункты открыты до ручного подтверждения.
+
+Новых дефектов приложения не выявлено, исправлений кода нет. Матрица покрывает
+автоматические части всех20, native аспекты отдельно NOT RUN. PRE-03 и временный
+net9.0 сохранены как ограничения; Windows/SQL admin/direct token access/общая SQL+NTFS
+атомарность не обещаются. Полный disk-full/power-loss/physical file symlink не проводились.
+Статус: **требуется ручная приёмка**, следующий шаг — 09.02–09.04/10.03/10.06 по
+STAGE09_10_MANUAL_TEST и SCREENSHOT_CHECKLIST. Python/режим B/рефакторинг/коммиты не начинались.
+
+Финальная проверка документов/demo: локальные Markdown-ссылки разрешаются, inventory
+содержит160 cases/78 SQL. Release DocumentValidator подтвердил VALID у example TXT/JSON/XML,
+JSON_SYNTAX/XML_SYNTAX у invalid и XML_DTD у forbidden-dtd. Это не новые xUnit cases.
+demo/safe.zip содержит только first.txt/second.txt по67 байт, Store. git diff --check —
+без whitespace errors (предупреждения LF→CRLF относятся к политике Git).
+
+Проверочный publish-процесс30348 оставлен: guard обнаружил MainWindowHandle,
+принудительное завершение не выполнялось. Перед заменой публикации закрыть это окно.
+
 ## 2026-11-01 — PRE, предварительная проверка этапа 01
 
 Изучены AGENTS.md, TECHNICAL_SPEC.md, DESIGN_SPEC.md, TASKS.md;
