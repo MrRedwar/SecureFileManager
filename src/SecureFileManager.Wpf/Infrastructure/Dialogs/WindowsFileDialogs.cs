@@ -19,7 +19,7 @@ public sealed class WindowsFileDialogs(IFileService files, IUserSession session,
         return picker.ShowDialog(Application.Current.MainWindow) == true ? picker.FolderName : null;
     }
     public bool Confirm(ExternalChangeRequest request) => Confirm("Подтвердить файловую операцию",
-        $"{(request.Kind == ExternalChange.Move ? "Переместить / переименовать" : "Копировать")}:\n{request.Source}\n\nПапка назначения:\n{request.Directory}\nИмя: {request.Name}\n\nСуществующие объекты не перезаписываются и папки не объединяются.");
+        $"{request.Kind switch { ExternalChange.Delete => "Переместить в корзину приложения (не Корзину Windows)", ExternalChange.Restore => "Восстановить из корзины приложения по исходному пути", ExternalChange.CreateZip => "Создать ZIP", ExternalChange.ExtractZip => "Распаковать ZIP", ExternalChange.Move => "Переместить / переименовать", _ => "Копировать" }}:\n{request.Source}\n\nПапка назначения:\n{request.Directory}\nИмя: {request.Name}\n\nСуществующие объекты не перезаписываются и папки не объединяются. Корзина приложения сохраняет данные на исходном томе; очистка автоматически не выполняется.");
     public ArchiveTarget? ChooseArchiveTarget(bool extract, string directory)
     {
         var browser = new FilesViewModel(files, directoriesOnly: true); browser.UpdateSession(session.Current);

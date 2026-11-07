@@ -1,5 +1,13 @@
 # TECHNICAL_SPEC.md — Техническое задание Secure File Manager
 
+Дополнение11.04 (07.11.2026): внешний Delete — обратимый same-volume rename в корзину
+приложения `.sfm-trash-<id>`, без стирания/автоочистки; Restore по исходному полному пути
+и проверенной квитанции, без overwrite. Это не Windows Shell Recycle Bin, место не освобождается.
+Внешний ZIP: create/preview/extract через прежний ZipEngine, те же лимиты/проверки actual
+bytes/CRC, только новая папка назначения, preview version check, staging/plan/SQL audit/recovery.
+Общие ExternalDocuments сохраняют GUID/историю при Delete/Restore; миграция не требуется.
+Границы, квитанции и критерии приёмки — docs/EXTERNAL_ARCHIVES_TRASH.md.
+
 ## Изменение области 07.11.2026 — общие файлы компьютера
 
 Дополнение11.03: создание внешних файлов/папок, copy деревьев и move/rename на одном

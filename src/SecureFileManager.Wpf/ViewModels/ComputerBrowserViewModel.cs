@@ -47,6 +47,11 @@ public sealed class ComputerBrowserViewModel : SectionViewModel
         MoveCommand = new AsyncRelayCommand(_ => ChangeAsync(ExternalChange.Move), () => CanChange && CanSelect);
         RenameCommand = new AsyncRelayCommand(_ => ChangeAsync(ExternalChange.Move, true), () => CanChange && CanSelect);
         RecoverOperationsCommand = new AsyncRelayCommand(_ => RecoverOperationsAsync(), () => Ready && _operations is not null);
+        DeleteCommand = new AsyncRelayCommand(_ => ArchiveTrashAsync(ExternalChange.Delete), () => CanChange && CanSelect);
+        RestoreDeletedCommand = new AsyncRelayCommand(_ => ArchiveTrashAsync(ExternalChange.Restore), () => CanChange);
+        CreateZipCommand = new AsyncRelayCommand(_ => ArchiveTrashAsync(ExternalChange.CreateZip), () => CanChange && CanSelect);
+        ExtractZipCommand = new AsyncRelayCommand(_ => ArchiveTrashAsync(ExternalChange.ExtractZip), () => CanChange && IsZip);
+        PreviewZipCommand = new AsyncRelayCommand(_ => ArchiveTrashAsync(null), () => CanChange && IsZip);
     }
     private bool Ready => _browser is not null && CurrentUser is not null && !IsLoading;
     public ObservableCollection<ComputerListItem> Items { get; } = [];
@@ -67,6 +72,48 @@ public sealed class ComputerBrowserViewModel : SectionViewModel
     public ICommand MoveCommand { get; }
     public ICommand RenameCommand { get; }
     public ICommand RecoverOperationsCommand { get; }
+    public ICommand DeleteCommand { get; }
+    public ICommand RestoreDeletedCommand { get; }
+    public ICommand CreateZipCommand { get; }
+    public ICommand ExtractZipCommand { get; }
+    public ICommand PreviewZipCommand { get; }
+    private bool IsZip => CanSelect && Selected is { Data.IsDirectory: false } item && item.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+    private async Task ArchiveTrashAsync(ExternalChange? kind)
+    {
+        if (!CanChange || kind != ExternalChange.Restore && !CanSelect || (kind is null or ExternalChange.ExtractZip) && !IsZip) return;
+        var generation = _generation; var actor = CurrentUser?.Id; var source = Selected?.Data.Path;
+        if (kind == ExternalChange.Restore) source = _operationDialogs!.AskName("Полный исходный путь удалённого объекта", _path + "\\");
+        if (source is null || generation != _generation) return;
+        IsLoading = true; ErrorMessage = null; CommandManager.InvalidateRequerySuggested();
+        try
+        {
+            string? version = null;
+            if (kind is null or ExternalChange.ExtractZip)
+            {
+                var preview = await _operations!.PreviewAsync(source);
+                if (generation != _generation) return;
+                if (!preview.Succeeded) { ErrorMessage = preview.Message; return; }
+                var proceed = _operationDialogs!.ShowArchivePreview(preview.Value!, kind is not null);
+                version = preview.Value!.Version;
+                if (kind is null || !proceed || !preview.Value.CanExtract || generation != _generation) return;
+            }
+            var destination = kind is ExternalChange.CreateZip or ExternalChange.ExtractZip ? _operationDialogs!.ChooseDirectory(_path) : System.IO.Path.GetDirectoryName(source);
+            if (destination is null || generation != _generation) return;
+            var name = kind is ExternalChange.CreateZip or ExternalChange.ExtractZip ? _operationDialogs!.AskName(
+                kind == ExternalChange.CreateZip ? "Имя ZIP (с расширением .zip)" : "Имя новой папки для распаковки",
+                kind == ExternalChange.CreateZip ? Selected!.Name + ".zip" : "Распаковано") : System.IO.Path.GetFileName(source);
+            if (name is null || generation != _generation) return;
+            var request = new ExternalChangeRequest(kind!.Value, source, destination, name, version);
+            if (!_operationDialogs!.Confirm(request) || generation != _generation) return;
+            var result = await _operations!.ExecuteAsync(request);
+            if (generation != _generation) return;
+            if (!result.Succeeded) { ErrorMessage = result.Message; return; }
+            IsLoading = false; await NavigateAsync(_path);
+            if (CurrentUser?.Id == actor) Status = "Операция выполнена. " + Status;
+        }
+        catch { if (generation == _generation) ErrorMessage = "Операция не подтверждена. Проверьте диск, аудит и сохранённые планы операций."; }
+        finally { if (generation == _generation) IsLoading = false; CommandManager.InvalidateRequerySuggested(); }
+    }
     private bool CanChange => Ready && _path != "" && _operations is not null && _operationDialogs is not null;
     private bool CanSelect => Selected is { Note: "" } && (!Selected.Data.IsDirectory || Selected.Data.CanEnter);
     private async Task ChangeAsync(ExternalChange kind, bool rename = false)

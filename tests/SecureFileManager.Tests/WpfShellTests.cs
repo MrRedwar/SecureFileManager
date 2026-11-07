@@ -140,7 +140,7 @@ public sealed class WpfShellTests
                         Assert.Contains(Descendants(root).OfType<TextBox>(), x => AutomationProperties.GetName(x) == "Путь к папке компьютера");
                         var operationsMenu = Descendants(root).OfType<Menu>().Single(x => AutomationProperties.GetName(x) == "Действия с файлами компьютера");
                         var commands = ((MenuItem)operationsMenu.Items[0]).Items.OfType<MenuItem>().ToArray();
-                        Assert.Equal(6, commands.Length);
+                        Assert.Equal(11, commands.Length);
                         Assert.All(commands, x => Assert.NotNull(x.Command));
                         // Sorting uses raw bytes, not formatted strings such as "10 КБ" and "2 КБ".
                         drivesModel.Computer.Items.Add(new(new("ui-large", "large", false, 10240, null, false)));

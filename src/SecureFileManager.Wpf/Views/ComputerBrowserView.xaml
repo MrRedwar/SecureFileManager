@@ -20,6 +20,12 @@
      <MenuItem Header="Копировать в…" Command="{Binding CopyCommand}"/>
      <MenuItem Header="Переместить в…" Command="{Binding MoveCommand}"/>
      <MenuItem Header="Переименовать" Command="{Binding RenameCommand}"/>
+     <MenuItem Header="В корзину приложения…" Command="{Binding DeleteCommand}"/>
+     <MenuItem Header="Восстановить удалённое по пути…" Command="{Binding RestoreDeletedCommand}"/>
+     <Separator/>
+     <MenuItem Header="Создать ZIP…" Command="{Binding CreateZipCommand}"/>
+     <MenuItem Header="Содержимое ZIP…" Command="{Binding PreviewZipCommand}"/>
+     <MenuItem Header="Распаковать ZIP…" Command="{Binding ExtractZipCommand}"/>
      <Separator/>
      <MenuItem Header="Проверить операции" Command="{Binding RecoverOperationsCommand}" ToolTip="Восстановление по сохранённым планам и SQL; неизвестные данные не удаляются"/>
     </MenuItem>

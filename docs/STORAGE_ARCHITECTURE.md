@@ -1,5 +1,12 @@
 # Архитектура хранения и расширение A → B
 
+Дополнение11.04: внешние объекты удаляются обратимым rename в соседний `.sfm-trash-<id>`;
+квитанции находятся в `StorageRoot/.external-trash`, pending — в прежнем `.external-operations`.
+Автоочистки нет, байты остаются на том же томе. Restore сохраняет GUID и возвращает путь,
+схема ExternalDocuments не меняется. Внешние ZIP проходят прежний ZipEngine, создаются
+и извлекаются в соседний staging с проверками actual bytes/CRC перед публикацией.
+Подробности: [EXTERNAL_ARCHIVES_TRASH](EXTERNAL_ARCHIVES_TRASH.md).
+
 Дополнение11.03: общие create/copy/move/rename используют исходный ExternalDocumentStore
 без новой схемы, Windows ACL/handles и staging/plans. Move на том же томе сохраняет
 физическую identity/ACL и GUID известных metadata; copy получает свои target records.

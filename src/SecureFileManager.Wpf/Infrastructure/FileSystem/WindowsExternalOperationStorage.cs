@@ -7,10 +7,10 @@ using SecureFileManager.Core.Security;
 
 namespace SecureFileManager.Wpf.Infrastructure.FileSystem;
 
-public sealed class WindowsExternalOperationStorage(PersonalStorage personal) : IExternalOperationStorage
+public sealed partial class WindowsExternalOperationStorage(PersonalStorage personal) : IExternalOperationStorage
 {
     public IExternalOperationWorkspace Open() => new Workspace(personal);
-    private sealed class Workspace : IExternalOperationWorkspace
+    private sealed partial class Workspace : IExternalOperationWorkspace
     {
         private readonly WindowsComputerDirectoryReader _paths;
         private readonly PersonalStorage _personal;
@@ -146,8 +146,7 @@ public sealed class WindowsExternalOperationStorage(PersonalStorage personal) : 
                 catch (JsonException) { throw new FileCommandException(FileStatus.RecoveryRequired); }
                 if (plan is null || plan.Id == Guid.Empty || PlanPath(plan.Id) != path || !Enum.IsDefined(plan.Kind) || plan.Entries is not { Count: > 0 and <= ExternalOperationRules.Nodes })
                     throw new FileCommandException(FileStatus.RecoveryRequired);
-                _paths.Normalize(plan.Target);
-                if (plan.Source is not null) _paths.Normalize(plan.Source);
+                ValidatePaths(plan);
                 if (plan.Stage is not null && plan.Stage != Path.Combine(Path.GetDirectoryName(plan.Target)!, ".sfm-op-" + plan.Id.ToString("N")))
                     throw new FileCommandException(FileStatus.RecoveryRequired);
                 if (plan.Entries[0].RelativePath != "" || plan.Entries.Any(x => x.RelativePath != "" && !x.RelativePath.Split('\\').All(RelativePathSyntax.IsNameValid)))
@@ -158,11 +157,13 @@ public sealed class WindowsExternalOperationStorage(PersonalStorage personal) : 
         }
         public ExternalOperationPlan Prepare(ExternalChangeRequest request, CancellationToken ct)
         {
+            if (request.Kind is ExternalChange.Delete or ExternalChange.Restore) return PrepareTrash(request, ct);
             if (!RelativePathSyntax.IsNameValid(request.Name) || request.Name.StartsWith(".sfm-", StringComparison.OrdinalIgnoreCase)) throw new FileCommandException(FileStatus.Invalid);
+            if (request.Kind == ExternalChange.CreateZip && !request.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) throw new FileCommandException(FileStatus.Invalid);
             var parent = _paths.Normalize(request.Directory); Pin(parent);
             var target = _paths.Normalize(Path.Combine(parent, request.Name)); FreeName(target);
             string? source = null; List<ExternalOperationEntry>? original = null;
-            if (request.Kind is ExternalChange.Copy or ExternalChange.Move)
+            if (request.Kind is ExternalChange.Copy or ExternalChange.Move or ExternalChange.CreateZip or ExternalChange.ExtractZip)
             {
                 source = _paths.Normalize(request.Source ?? "");
                 if (source.Equals(Path.GetPathRoot(source), StringComparison.OrdinalIgnoreCase) || target.Equals(source, StringComparison.OrdinalIgnoreCase) ||
@@ -173,6 +174,8 @@ public sealed class WindowsExternalOperationStorage(PersonalStorage personal) : 
                 var directory = (File.GetAttributes(source) & FileAttributes.Directory) != 0;
                 _source = SafeNativeFile.Open(source, directory, delete: request.Kind == ExternalChange.Move);
                 original = Snapshot(source, ct, held: _source);
+                if (request.Kind == ExternalChange.ExtractZip && request.ExpectedVersion is { } expected && original[0].Version != expected)
+                    throw new FileCommandException(FileStatus.Conflict);
             }
             var id = Guid.NewGuid();
             if (request.Kind == ExternalChange.Move)
@@ -209,6 +212,11 @@ public sealed class WindowsExternalOperationStorage(PersonalStorage personal) : 
                 if (request.Kind == ExternalChange.CreateDirectory) DirectoryNew(stage, "");
                 else if (request.Kind == ExternalChange.CreateFile)
                     FileNew(stage, "", stream => stream.Write(Encoding.UTF8.GetBytes(Path.GetExtension(target).ToLowerInvariant() switch { ".json" => "{}", ".xml" => "<document />", _ => "" })));
+                else if (request.Kind is ExternalChange.CreateZip or ExternalChange.ExtractZip)
+                {
+                    GenerateZip(request.Kind, source!, stage, original!, DirectoryNew, FileNew, owned, ct);
+                    Match(original!, Snapshot(source!, ct, held: _source));
+                }
                 else
                 {
                     foreach (var entry in original!)
@@ -239,7 +247,7 @@ public sealed class WindowsExternalOperationStorage(PersonalStorage personal) : 
                 }
                 var entries = Snapshot(stage, ct, true);
                 Match(owned.Values.ToArray(), entries);
-                if (original is not null) Match(original, entries, false);
+                if (original is not null && request.Kind == ExternalChange.Copy) Match(original, entries, false);
                 var plan = new ExternalOperationPlan(id, request.Kind, source, target, stage, entries); Persist(plan); return plan;
             }
             catch
@@ -255,11 +263,11 @@ public sealed class WindowsExternalOperationStorage(PersonalStorage personal) : 
         public IReadOnlyList<ExternalOperationEntry> Publish(ExternalOperationPlan plan, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested(); FreeName(plan.Target);
-            if (plan.Kind == ExternalChange.Move)
+            if (Renames(plan.Kind))
             {
-                Match(plan.Entries, Snapshot(plan.Source!, ct, held: _source));
+                Match(plan.Entries, Snapshot(plan.Source!, ct, plan.Kind == ExternalChange.Restore, held: _source));
                 SafeNativeFile.Rename(_source!, plan.Target);
-                return Snapshot(plan.Target, ct, held: _source);
+                return Snapshot(plan.Target, ct, plan.Kind == ExternalChange.Delete, held: _source);
             }
             Match(plan.Entries, Snapshot(plan.Stage!, ct, true));
             using (var root = SafeNativeFile.Open(plan.Stage!, plan.Entries[0].Directory, delete: true)) SafeNativeFile.Rename(root, plan.Target);
@@ -270,11 +278,11 @@ public sealed class WindowsExternalOperationStorage(PersonalStorage personal) : 
             Pin(Path.GetDirectoryName(plan.Target)!);
             if (plan.Source is not null) Pin(Path.GetDirectoryName(plan.Source)!);
             var target = Exists(plan.Target);
-            if (plan.Kind == ExternalChange.Move)
+            if (Renames(plan.Kind))
             {
                 if (target)
                 {
-                    var rows = Snapshot(plan.Target, CancellationToken.None, held: _source);
+                    var rows = Snapshot(plan.Target, CancellationToken.None, plan.Kind == ExternalChange.Delete, held: _source);
                     Match(plan.Entries, rows);
                     if (!committed)
                     {
@@ -286,7 +294,7 @@ public sealed class WindowsExternalOperationStorage(PersonalStorage personal) : 
                 else
                 {
                     if (committed) throw new FileCommandException(FileStatus.RecoveryRequired);
-                    Match(plan.Entries, Snapshot(plan.Source!, CancellationToken.None, held: _source));
+                    Match(plan.Entries, Snapshot(plan.Source!, CancellationToken.None, plan.Kind == ExternalChange.Restore, held: _source));
                 }
             }
             else
@@ -303,6 +311,8 @@ public sealed class WindowsExternalOperationStorage(PersonalStorage personal) : 
                     DeleteOwned(plan.Stage, rows);
                 }
             }
+            if (committed && plan.Kind == ExternalChange.Delete) SaveReceipt(plan);
+            if (committed && plan.Kind == ExternalChange.Restore) RemoveReceipt(plan);
             File.Delete(PlanPath(plan.Id));
         }
         public void Dispose() { _source?.Dispose(); _lock?.Dispose(); foreach (var pin in _pins) pin.Dispose(); }

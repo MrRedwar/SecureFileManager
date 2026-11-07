@@ -33,7 +33,8 @@ public sealed class ExternalDocumentStore(IDbContextFactory<AppDbContext> factor
         {
             await using var db = await factory.CreateDbContextAsync(ct);
             return await db.Operations.AnyAsync(x => EF.Functions.Collate(x.ExternalPathSnapshot!, "Latin1_General_100_CI_AS") == path && x.CorrelationId == correlation && x.Result == OperationResult.Success &&
-                (x.Details == "EXTERNAL_SAVED" || x.Details == "EXTERNAL_OP_CreateFile" || x.Details == "EXTERNAL_OP_CreateDirectory" || x.Details == "EXTERNAL_OP_Copy" || x.Details == "EXTERNAL_OP_Move"), ct);
+                (x.Details == "EXTERNAL_SAVED" || x.Details == "EXTERNAL_OP_CreateFile" || x.Details == "EXTERNAL_OP_CreateDirectory" || x.Details == "EXTERNAL_OP_Copy" || x.Details == "EXTERNAL_OP_Move" ||
+                x.Details == "EXTERNAL_OP_Delete" || x.Details == "EXTERNAL_OP_Restore" || x.Details == "EXTERNAL_OP_CreateZip" || x.Details == "EXTERNAL_OP_ExtractZip"), ct);
         }
         catch (Exception ex) when (ex is SqlException or InvalidOperationException) { throw new FileStoreException(true); }
     }

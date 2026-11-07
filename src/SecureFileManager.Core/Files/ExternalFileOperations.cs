@@ -6,23 +6,25 @@ using SecureFileManager.Core.Services;
 
 namespace SecureFileManager.Core.Files;
 
-public enum ExternalChange { CreateFile, CreateDirectory, Copy, Move }
-public sealed record ExternalChangeRequest(ExternalChange Kind, string? Source, string Directory, string Name);
+public enum ExternalChange { CreateFile, CreateDirectory, Copy, Move, Delete, Restore, CreateZip, ExtractZip }
+public sealed record ExternalChangeRequest(ExternalChange Kind, string? Source, string Directory, string Name, string? ExpectedVersion = null);
 public sealed record ExternalOperationEntry(string RelativePath, bool Directory, string Version, long Size, DateTime ModifiedUtc);
 public sealed record ExternalOperationPlan(Guid Id, ExternalChange Kind, string? Source, string Target, string? Stage,
-    IReadOnlyList<ExternalOperationEntry> Entries);
+    IReadOnlyList<ExternalOperationEntry> Entries, Guid? TrashId = null);
 public interface IExternalOperationWorkspace : IDisposable
 {
     ExternalOperationPlan Prepare(ExternalChangeRequest request, CancellationToken ct);
     IReadOnlyList<ExternalOperationEntry> Publish(ExternalOperationPlan plan, CancellationToken ct);
     void Settle(ExternalOperationPlan plan, bool committed);
     IReadOnlyList<ExternalOperationPlan> Pending();
+    ArchivePreview Preview(string path, CancellationToken ct) => throw new FileCommandException(FileStatus.Unsupported);
 }
 public interface IExternalOperationStorage { IExternalOperationWorkspace Open(); }
 public interface IExternalFileOperationService
 {
     Task<FileResult<bool>> ExecuteAsync(ExternalChangeRequest request, CancellationToken ct = default);
     Task<FileResult<bool>> RecoverAsync(CancellationToken ct = default);
+    Task<FileResult<ArchivePreview>> PreviewAsync(string path, CancellationToken ct = default);
 }
 public static class ExternalOperationRules
 {
@@ -31,7 +33,8 @@ public static class ExternalOperationRules
     public const long TotalBytes = 1024L * 1024 * 1024;
     public static string Key(string path) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(path.ToUpperInvariant())));
     public static bool AuditCode(string? code) => code is "EXTERNAL_OP_CreateFile" or "EXTERNAL_OP_CreateDirectory" or
-        "EXTERNAL_OP_Copy" or "EXTERNAL_OP_Move" or "EXTERNAL_OP_SOURCE" or "EXTERNAL_OP_RECOVERED";
+        "EXTERNAL_OP_Copy" or "EXTERNAL_OP_Move" or "EXTERNAL_OP_Delete" or "EXTERNAL_OP_Restore" or
+        "EXTERNAL_OP_CreateZip" or "EXTERNAL_OP_ExtractZip" or "EXTERNAL_OP_PREVIEW" or "EXTERNAL_OP_SOURCE" or "EXTERNAL_OP_RECOVERED";
 }
 public sealed class ExternalFileOperationService(IUserSession session, IExternalDocumentStore store,
     IExternalOperationStorage storage, IAuditService audit, IClock clock) : IExternalFileOperationService
@@ -54,29 +57,30 @@ public sealed class ExternalFileOperationService(IUserSession session, IExternal
         item.ExternalPathSnapshot = path; item.ExternalDocumentId = document; item.CorrelationId = correlation;
         return c.Work.AuditAsync(item, ct);
     }
-    private async Task<FileResult<bool>> Run(Func<Context, CancellationToken, Task> action, CancellationToken ct)
+    private async Task<FileResult<T>> Run<T>(Func<Context, CancellationToken, Task<T>> action, CancellationToken ct)
     {
         try { await _gate.WaitAsync(ct); } catch (OperationCanceledException) { return new(FileStatus.Cancelled); }
         var actor = session.Current; var revision = session.Revision; Context? c = null; var committed = false;
         try
         {
             if (actor is null) throw new FileCommandException(FileStatus.Denied);
-            await store.ExecuteAsync(actor.Id, async work =>
+            var value = await store.ExecuteAsync(actor.Id, async work =>
             {
                 c = new(work, actor, revision); Check(c);
                 c.Space = await Task.Run(storage.Open, ct);
-                await action(c, ct); Check(c); return true;
+                var result = await action(c, ct); Check(c); return result;
             }, ct);
             committed = true;
             if (c!.Plan is { } plan) await Task.Run(() => c.Space!.Settle(plan, true), CancellationToken.None);
-            Check(c); return new(FileStatus.Success, true);
+            Check(c); return new(FileStatus.Success, value);
         }
         catch (Exception ex) when (ex is FileCommandException or FileStoreException or IOException or UnauthorizedAccessException or
-            System.Security.SecurityException or ArgumentException or OperationCanceledException or NotSupportedException)
+            System.Security.SecurityException or ArgumentException or OperationCanceledException or NotSupportedException or System.IO.InvalidDataException)
         {
             var status = ex switch
             {
                 FileCommandException f => f.Status, FileStoreException => FileStatus.DatabaseUnavailable,
+                System.IO.InvalidDataException => FileStatus.ArchiveInvalid,
                 OperationCanceledException => FileStatus.Cancelled, UnauthorizedAccessException => FileStatus.Denied,
                 _ => FileStatus.Unavailable
             };
@@ -107,7 +111,7 @@ public sealed class ExternalFileOperationService(IUserSession session, IExternal
         Check(c);
         var entries = await Task.Run(() => c.Space!.Publish(c.Plan, token), token);
         Check(c);
-        var knownSource = c.Plan.Source is { } source && request.Kind == ExternalChange.Move
+        var knownSource = c.Plan.Source is { } source && request.Kind is ExternalChange.Move or ExternalChange.Delete or ExternalChange.Restore
             ? await c.Work.FindTreeAsync(source, token) : [];
         foreach (var record in knownSource)
         {
@@ -129,10 +133,13 @@ public sealed class ExternalFileOperationService(IUserSession session, IExternal
             if (entry.RelativePath == "") targetId = record.Id;
         }
         if (c.Plan.Source is { } origin)
-            await Event(c, origin, request.Kind == ExternalChange.Move ? targetId : null, "EXTERNAL_OP_SOURCE", OperationType.FILE_READ, c.Plan.Id, token);
+            await Event(c, origin, request.Kind is ExternalChange.Move or ExternalChange.Delete or ExternalChange.Restore ? targetId : null, "EXTERNAL_OP_SOURCE", OperationType.FILE_READ, c.Plan.Id, token);
         await Event(c, c.Plan.Target, targetId, "EXTERNAL_OP_" + request.Kind,
-            request.Kind == ExternalChange.CreateDirectory ? OperationType.DIRECTORY_CREATED : request.Kind == ExternalChange.Move ? OperationType.FILE_UPDATED : OperationType.FILE_CREATED,
+            request.Kind switch { ExternalChange.CreateDirectory => OperationType.DIRECTORY_CREATED, ExternalChange.Delete => OperationType.FILE_DELETED,
+                ExternalChange.Move or ExternalChange.Restore => OperationType.FILE_UPDATED, ExternalChange.CreateZip => OperationType.ZIP_CREATED,
+                ExternalChange.ExtractZip => OperationType.ZIP_EXTRACTED, _ => OperationType.FILE_CREATED },
             c.Plan.Id, token);
+        return true;
     }, ct);
     public Task<FileResult<bool>> RecoverAsync(CancellationToken ct = default) => Run(async (c, token) =>
     {
@@ -143,5 +150,13 @@ public sealed class ExternalFileOperationService(IUserSession session, IExternal
             await Task.Run(() => c.Space!.Settle(plan, committed), token);
             await Event(c, plan.Target, null, "EXTERNAL_OP_RECOVERED", OperationType.FILE_UPDATED, Guid.NewGuid(), token);
         }
+        return true;
+    }, ct);
+    public Task<FileResult<ArchivePreview>> PreviewAsync(string path, CancellationToken ct = default) => Run(async (c, token) =>
+    {
+        if ((await Task.Run(c.Space!.Pending, token)).Count != 0) throw new FileCommandException(FileStatus.RecoveryRequired);
+        var preview = await Task.Run(() => c.Space!.Preview(path, token), token);
+        await Event(c, path, null, "EXTERNAL_OP_PREVIEW", OperationType.FILE_READ, Guid.NewGuid(), token);
+        return preview;
     }, ct);
 }

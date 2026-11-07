@@ -1,5 +1,11 @@
 # Архитектура Secure File Manager — итоговая C#-версия
 
+Дополнение11.04: ExternalFileOperationService расширен Delete/Restore/CreateZip/ExtractZip
+и PreviewAsync; WindowsExternalOperationStorage.ArchivesTrash реализует same-volume
+корзину с квитанцией и IFilePreparation для прежнего ZipEngine. DI и схема EF прежние.
+ExternalDocuments перемещаются вместе с файлами, Operations хранит новые фиксированные
+коды с корреляцией. Протокол и границы — [EXTERNAL_ARCHIVES_TRASH](EXTERNAL_ARCHIVES_TRASH.md).
+
 Дополнение11.03: ExternalFileOperationService (Core) и WindowsExternalOperationStorage
 (Wpf infrastructure) выполняют create/copy/move/rename с no-replace publish и recovery.
 Переиспользуют ExternalDocumentStore/текущую схему, metadata GUID сохраняются при move

@@ -1,5 +1,74 @@
 # Журнал фактического прогресса
 
+## 2026-11-07 — 11.04, обратимая корзина приложения и внешние ZIP
+
+Пользователь подтвердил обычную ручную проверку11.03 («я протестировал и вроде норм»)
+и поручил следующий пункт. Начальный HEAD `c51c09e` (11.3), рабочее дерево чистое.
+11.03 отмечен принятым в его согласованных пределах; отдельные DPI/keyboard/clean-install
+этим сообщением не подтверждены. 11.04 остаётся открытым до ручной приёмки новых команд.
+
+Реализованы Delete/Restore через same-volume no-replace rename и durable-квитанции,
+ZIP create/preview/extract через прежний ZipEngine/IFilePreparation, preview fingerprint,
+пять новых команд компактного меню. Metadata+audit работают в существующей SQL-транзакции,
+GUID/история сохраняются, новый migration/пакет не требуется. Windows Shell Recycle не
+используется: собственный протокол поддерживает rollback/recovery. Автоочистки нет, место
+не освобождается. Обоснование и ограничения — DECISIONS и EXTERNAL_ARCHIVES_TRASH.
+
+Фактические проверки Windows / SDK9.0.200 / SQL Express Running:
+
+- `dotnet build SecureFileManager.sln -c Debug --artifacts-path artifacts/external-final` —
+  PASS,0 warnings/errors (19.96с); финальный Debug повторно собран скриптом тестов.
+- `./scripts/Test-Stage08.ps1 -ArtifactsPath D:\SecureFileManager\artifacts\external-final -ResultsDirectory D:\SecureFileManager\artifacts\external-final-targeted2-20261107 -Filter 'FullyQualifiedName~ExternalTrash|FullyQualifiedName~ExternalZip'`
+  —9/9 PASS,0 FAIL/SKIP. Предыдущая попытка компиляции нового теста не прошла: internal
+  `r.Paths.StorageRoot` заменён на `r.Root` тестового Rig, проверки не отключались.
+- Полный прогон `external-final-full-20261107` —194/194 PASS,0 FAIL/SKIP,VSTest42с.
+  Затем уточнён **показываемый** каталог Delete/Restore, чтобы подтверждение соответствовало
+  родителю исходного пути даже при вводе пути из другой папки.
+- Финальный `./scripts/Test-Stage08.ps1 -ArtifactsPath D:\SecureFileManager\artifacts\external-final -ResultsDirectory D:\SecureFileManager\artifacts\external-final-verified-20261107`
+  —**194 PASS,0 FAIL,0 SKIP**,108 SQL integration+86 прочих cases,VSTest37с.
+  TRX start14:51:58.6779701+03:00,finish14:52:37.5098454+03:00 (38.832с).
+  Артефакт: `artifacts/external-final-verified-20261107/stage08.trx` (ignored).
+  Только новая GUID-БД и TEMP/run-34a3a19a4fa347068a45246da03d4c07;
+  очистка только собственного run-каталога без следования reparse points подтверждена.
+- `dotnet build SecureFileManager.sln -c Release --artifacts-path artifacts/external-final`
+  —PASS,0 warnings/errors; финальная сборка4.15с.
+- `dotnet ef migrations has-pending-model-changes --project src/SecureFileManager.Data --startup-project src/SecureFileManager.Data`
+  —PASS,изменений EF model после третьей миграции нет. Миграции не применялись.
+- WpfShellTests в полном прогоне —PASS:11 привязанных команд меню, прежние размеры/layout.
+  Это автоматический STA/layout прогон, не настоящая ручная проверка Windows DPI/диалогов.
+
+Сценарии новых9 SQL/FS тестов: tree/binary/empty folder round-trip корзины и ZIP;
+stable GUID/audit snapshots; no overwrite; SQL audit trigger rollback в обоих направлениях;
+uncommitted и committed recovery; другой app-актор; неожиданные изменения сохраняются;
+ZIP Slip/symlink/ratio bomb/CI duplicates/CRC/corrupt header; preview version conflict;
+SQL unavailable/no session/private Storage/junction fail-closed. Старые тесты не удалены.
+Новых подтверждённых дефектов прежней версии не выявлено.
+
+Изменённые файлы к этому этапу:
+
+- `src/SecureFileManager.Core/Files/ExternalFileOperations.cs`
+- `src/SecureFileManager.Data/Files/ExternalDocumentStore.cs`
+- `src/SecureFileManager.Wpf/Infrastructure/FileSystem/WindowsExternalOperationStorage.cs`
+- `src/SecureFileManager.Wpf/Infrastructure/FileSystem/WindowsExternalOperationStorage.ArchivesTrash.cs` (новый)
+- `src/SecureFileManager.Wpf/Infrastructure/Dialogs/WindowsFileDialogs.cs`
+- `src/SecureFileManager.Wpf/ViewModels/ComputerBrowserViewModel.cs`
+- `src/SecureFileManager.Wpf/ViewModels/ExternalOperationDialogs.cs`
+- `src/SecureFileManager.Wpf/ViewModels/JournalViewModel.cs`
+- `src/SecureFileManager.Wpf/Views/ComputerBrowserView.xaml`
+- `tests/SecureFileManager.Tests/ExternalArchivesTrashIntegrationTests.cs` (новый)
+- `tests/SecureFileManager.Tests/WpfShellTests.cs`
+- `README.md`, `TECHNICAL_SPEC.md`, `DESIGN_SPEC.md`, `TASKS.md`
+- `docs/EXTERNAL_ARCHIVES_TRASH.md` (новый)
+- `docs/DECISIONS.md`, `docs/ARCHITECTURE.md`, `docs/STORAGE_ARCHITECTURE.md`
+- `docs/EXTERNAL_OPERATIONS.md`, `docs/TEST_REPORT.md`, `docs/STAGE09_10_MANUAL_TEST.md`
+- `docs/PROGRESS.md`
+
+Рабочая SecureFileManagerDB/пользовательские Storage и документы/User.Id/пароли не изменялись.
+Коммит не создавался. Publish текущего расширения не выполнялся. Native11.04/чистая
+установка/реальный power-loss и физическое заполнение диска NOT RUN. Полные инструкции
+ручной проверки и известные пределы — EXTERNAL_ARCHIVES_TRASH. Следующий шаг — ручная
+приёмка11.04; следующая функциональная задача после него в TASKS пока не определена.
+
 ## 2026-11-07 — 11.03, создание/copy/move/rename внешних объектов
 
 По поручению пользователя после его проверки/коммита11.02 начат следующий этап.

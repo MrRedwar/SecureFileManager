@@ -1,5 +1,13 @@
 # Итоговый отчёт тестирования этапов 09–10
 
+**Дополнение11.04,07.11.2026:** обратимая корзина приложения/Restore и внешние
+ZIP create/preview/extract. Debug/Release PASS (0 warnings/errors), EF model changes0.
+Полная регрессия **194 PASS,0 FAIL,0 SKIP**, включая108 SQL integration и86 прочих cases.
+Добавлены9 SQL/FS сценариев, WPF проверяет11 команд прежнего меню. Инструкция,
+проверяемые угрозы и ограничения — [EXTERNAL_ARCHIVES_TRASH](EXTERNAL_ARCHIVES_TRASH.md).
+Ручные сценарии новых команд NOT RUN; пользователь подтвердил только предыдущий11.03.
+Точные команды/артефакты — PROGRESS.md. Старые результаты ниже сохраняют исторический смысл.
+
 **Дополнение11.03,07.11.2026:** create/copy/move/rename внешних объектов,185/185 PASS,
 Debug/Release0/0, модель не требует миграции. Новые10 SQL/FS сценариев и расширенный
 WPF-тест/ограничения/native-приёмка — [EXTERNAL_OPERATIONS](EXTERNAL_OPERATIONS.md).

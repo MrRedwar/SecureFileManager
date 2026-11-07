@@ -31,6 +31,11 @@ public sealed record AuditListItem(string OccurredAt, string Actor, string Actio
         "EXTERNAL_OP_CreateDirectory" => "Создана внешняя папка.",
         "EXTERNAL_OP_Copy" => "Создана копия внешнего объекта.",
         "EXTERNAL_OP_Move" => "Внешний объект перемещён или переименован.",
+        "EXTERNAL_OP_Delete" => "Внешний объект перемещён в корзину приложения.",
+        "EXTERNAL_OP_Restore" => "Внешний объект восстановлен из корзины приложения.",
+        "EXTERNAL_OP_CreateZip" => "Создан внешний ZIP-архив.",
+        "EXTERNAL_OP_ExtractZip" => "Внешний ZIP извлечён в новую папку.",
+        "EXTERNAL_OP_PREVIEW" => "Проверено содержимое внешнего ZIP; фактическая распаковка ещё не выполнена.",
         "EXTERNAL_OP_SOURCE" => "Источник внешней файловой операции.",
         "EXTERNAL_OP_RECOVERED" => "Проверено восстановление внешней файловой операции.",
         _ => o.Result == OperationResult.Denied ? "Действие отклонено политикой доступа или безопасности." :
