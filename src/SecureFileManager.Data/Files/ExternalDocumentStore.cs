@@ -32,7 +32,8 @@ public sealed class ExternalDocumentStore(IDbContextFactory<AppDbContext> factor
         try
         {
             await using var db = await factory.CreateDbContextAsync(ct);
-            return await db.Operations.AnyAsync(x => EF.Functions.Collate(x.ExternalPathSnapshot!, "Latin1_General_100_CI_AS") == path && x.CorrelationId == correlation && x.Result == OperationResult.Success && x.Details == "EXTERNAL_SAVED", ct);
+            return await db.Operations.AnyAsync(x => EF.Functions.Collate(x.ExternalPathSnapshot!, "Latin1_General_100_CI_AS") == path && x.CorrelationId == correlation && x.Result == OperationResult.Success &&
+                (x.Details == "EXTERNAL_SAVED" || x.Details == "EXTERNAL_OP_CreateFile" || x.Details == "EXTERNAL_OP_CreateDirectory" || x.Details == "EXTERNAL_OP_Copy" || x.Details == "EXTERNAL_OP_Move"), ct);
         }
         catch (Exception ex) when (ex is SqlException or InvalidOperationException) { throw new FileStoreException(true); }
     }
@@ -41,6 +42,13 @@ public sealed class ExternalDocumentStore(IDbContextFactory<AppDbContext> factor
         public bool Audited { get; private set; }
         public Task<ExternalDocument?> FindAsync(Guid id, CancellationToken ct) => db.ExternalDocuments.SingleOrDefaultAsync(x => x.Id == id, ct);
         public Task<ExternalDocument?> FindPathAsync(string key, CancellationToken ct) => db.ExternalDocuments.SingleOrDefaultAsync(x => x.PathKey == key, ct);
+        public async Task<IReadOnlyList<ExternalDocument>> FindTreeAsync(string path, CancellationToken ct)
+        {
+            var result = await db.ExternalDocuments.Where(x => EF.Functions.Collate(x.Path, "Latin1_General_100_CI_AS") == path ||
+                EF.Functions.Collate(x.Path, "Latin1_General_100_CI_AS").StartsWith(path + "\\")).Take(ExternalOperationRules.Nodes + 1).ToListAsync(ct);
+            if (result.Count > ExternalOperationRules.Nodes) throw new FileCommandException(FileStatus.LimitExceeded);
+            return result;
+        }
         public async Task TrackAsync(ExternalDocument document, CancellationToken ct)
         {
             if (db.Entry(document).State == EntityState.Detached) db.ExternalDocuments.Add(document);

@@ -93,6 +93,8 @@ internal static class SafeNativeFile
         try { Marshal.WriteByte(data, 1); if (!SetFileInformationByHandle(handle, 4, data, 1)) Fail(); }
         finally { Marshal.FreeHGlobal(data); }
     }
+    internal static void CreateDirectoryNew(string path)
+    { if (!CreateDirectory(@"\\?\" + Path.GetFullPath(path), IntPtr.Zero)) Fail(); }
     internal static List<SafeFileHandle> Pin(string directory, IReadOnlyDictionary<string, SafeFileHandle>? held = null)
     {
         var handles = new List<SafeFileHandle>();
@@ -137,4 +139,7 @@ internal static class SafeNativeFile
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetFileTime(SafeFileHandle file, IntPtr creation, IntPtr access, ref System.Runtime.InteropServices.ComTypes.FILETIME modified);
+    [DllImport("kernel32.dll", EntryPoint = "CreateDirectoryW", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CreateDirectory(string path, IntPtr security);
 }

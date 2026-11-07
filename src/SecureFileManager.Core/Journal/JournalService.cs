@@ -35,10 +35,11 @@ public sealed class JournalService(IUserSession session, IUserRepository users, 
             ActorNameSnapshot = actor.Username, OccurredAtUtc = o.OccurredAtUtc, OperationType = o.OperationType, Result = o.Result,
             TargetPathSnapshot = RelativePathSyntax.IsValid(o.TargetPathSnapshot) ? o.TargetPathSnapshot : null,
             ExternalDocumentId = o.ExternalDocumentId,
-            ExternalPathSnapshot = o.ExternalDocumentId is not null && ExternalPathSyntax.IsValid(o.ExternalPathSnapshot) ? o.ExternalPathSnapshot : null,
+            ExternalPathSnapshot = (o.ExternalDocumentId is not null || Files.ExternalOperationRules.AuditCode(o.Details)) && ExternalPathSyntax.IsValid(o.ExternalPathSnapshot) ? o.ExternalPathSnapshot : null,
             Details = o.Details is "LOGIN_LOCKED" or "PERSONAL_STORAGE_PREPARED" or "METADATA_SYNCHRONIZED" or
                 "RECOVERY_FINALIZED" or "RECOVERY_ROLLED_BACK" or "STORAGE_DIAGNOSED" or "STORAGE_DIAGNOSIS_PARTIAL" or
-                "COMPUTER_DIRECTORY_LISTED" or "EXTERNAL_READ" or "EXTERNAL_SAVED" or "EXTERNAL_VALIDATED" or "EXTERNAL_RECOVERED" ? o.Details : null
+                "COMPUTER_DIRECTORY_LISTED" or "EXTERNAL_READ" or "EXTERNAL_SAVED" or "EXTERNAL_VALIDATED" or "EXTERNAL_RECOVERED" ||
+                Files.ExternalOperationRules.AuditCode(o.Details) ? o.Details : null
         }).ToArray(), result.Value.HasMore));
     }
     public async Task CheckHealthAsync(CancellationToken ct = default)

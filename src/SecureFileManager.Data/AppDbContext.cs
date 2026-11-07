@@ -122,7 +122,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                     throw new PersistenceValidationException();
                 case Operation o when o.Id == Guid.Empty || o.CorrelationId == Guid.Empty ||
                     (o.FileId is not null && o.ExternalDocumentId is not null) ||
-                    (o.ExternalPathSnapshot is not null && (o.ExternalDocumentId is null || !Core.Security.ExternalPathSyntax.IsValid(o.ExternalPathSnapshot))) ||
+                    (o.ExternalPathSnapshot is not null && ((!Core.Files.ExternalOperationRules.AuditCode(o.Details) && o.ExternalDocumentId is null) || !Core.Security.ExternalPathSyntax.IsValid(o.ExternalPathSnapshot))) ||
                     !Enum.IsDefined(o.OperationType) || !Enum.IsDefined(o.Result) ||
                     (o.TargetPathSnapshot is not null && !MetadataPath.IsValid(o.TargetPathSnapshot)):
                     throw new PersistenceValidationException();

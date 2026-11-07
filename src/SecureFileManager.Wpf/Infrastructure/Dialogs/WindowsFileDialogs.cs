@@ -5,9 +5,21 @@ using SecureFileManager.Core.Interfaces;
 using SecureFileManager.Wpf.ViewModels;
 using SecureFileManager.Wpf.Views;
 namespace SecureFileManager.Wpf.Infrastructure.Dialogs;
-public sealed class WindowsFileDialogs(IFileService files, IUserSession session, IExternalDocumentService external) : IFileDialogs, IArchiveDialogs, IExternalEditorDialogs
+public sealed class WindowsFileDialogs(IFileService files, IUserSession session, IExternalDocumentService external) : IFileDialogs, IArchiveDialogs, IExternalEditorDialogs, IExternalOperationDialogs
 {
     private readonly HashSet<TextEditorWindow> _editors = [];
+    public string? AskName(string prompt, string initial)
+    {
+        var dialog = new NameDialog(prompt, initial) { Owner = Application.Current.MainWindow };
+        return dialog.ShowDialog() == true ? dialog.Value : null;
+    }
+    public string? ChooseDirectory(string initial)
+    {
+        var picker = new OpenFolderDialog { Title = "Папка назначения", Multiselect = false, InitialDirectory = initial };
+        return picker.ShowDialog(Application.Current.MainWindow) == true ? picker.FolderName : null;
+    }
+    public bool Confirm(ExternalChangeRequest request) => Confirm("Подтвердить файловую операцию",
+        $"{(request.Kind == ExternalChange.Move ? "Переместить / переименовать" : "Копировать")}:\n{request.Source}\n\nПапка назначения:\n{request.Directory}\nИмя: {request.Name}\n\nСуществующие объекты не перезаписываются и папки не объединяются.");
     public ArchiveTarget? ChooseArchiveTarget(bool extract, string directory)
     {
         var browser = new FilesViewModel(files, directoriesOnly: true); browser.UpdateSession(session.Current);

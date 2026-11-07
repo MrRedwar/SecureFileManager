@@ -1,5 +1,11 @@
 # Архитектура Secure File Manager — итоговая C#-версия
 
+Дополнение11.03: ExternalFileOperationService (Core) и WindowsExternalOperationStorage
+(Wpf infrastructure) выполняют create/copy/move/rename с no-replace publish и recovery.
+Переиспользуют ExternalDocumentStore/текущую схему, metadata GUID сохраняются при move
+учтённых потомков. Папки аудитируются snapshots без file FK. Новый порт диалогов и меню
+в browser VM, прежние шесть разделов сохранены. Подробности: [EXTERNAL_OPERATIONS](EXTERNAL_OPERATIONS.md).
+
 Дополнение11.02 от07.11.2026: общий редактор получает ITextDocumentService (личный
 IFileService наследует порт); ExternalDocumentService и WindowsExternalDocumentStorage
 обслуживают внешние TXT/JSON/XML. ExternalDocumentStore в Data координирует общие

@@ -81,6 +81,8 @@ public sealed class WpfShellTests
                 Assert.NotNull(graph.GetRequiredService<IFileDialogs>());
                 Assert.NotNull(graph.GetRequiredService<IComputerBrowseService>());
                 Assert.NotNull(graph.GetRequiredService<IExternalDocumentService>());
+                Assert.NotNull(graph.GetRequiredService<IExternalFileOperationService>());
+                Assert.Same(graph.GetRequiredService<IFileDialogs>(), graph.GetRequiredService<IExternalOperationDialogs>());
                 Assert.Same(graph.GetRequiredService<IFileDialogs>(), graph.GetRequiredService<IExternalEditorDialogs>());
                 Assert.Same(graph.GetRequiredService<ComputerBrowserViewModel>(), graph.GetRequiredService<DrivesViewModel>().Computer);
                 Assert.Same(graph.GetRequiredService<IFileService>(), graph.GetRequiredService<IArchiveService>());
@@ -136,6 +138,10 @@ public sealed class WpfShellTests
                         if (export is not null) Export(root, size, 1.5, Path.Combine(export, $"computer-{size.Width}x{size.Height}-150pct-render.png"));
                         Assert.True(browserGrid.ActualHeight >= 70, $"Computer browser table {browserGrid.ActualWidth}x{browserGrid.ActualHeight}, root {size}.");
                         Assert.Contains(Descendants(root).OfType<TextBox>(), x => AutomationProperties.GetName(x) == "Путь к папке компьютера");
+                        var operationsMenu = Descendants(root).OfType<Menu>().Single(x => AutomationProperties.GetName(x) == "Действия с файлами компьютера");
+                        var commands = ((MenuItem)operationsMenu.Items[0]).Items.OfType<MenuItem>().ToArray();
+                        Assert.Equal(6, commands.Length);
+                        Assert.All(commands, x => Assert.NotNull(x.Command));
                         // Sorting uses raw bytes, not formatted strings such as "10 КБ" and "2 КБ".
                         drivesModel.Computer.Items.Add(new(new("ui-large", "large", false, 10240, null, false)));
                         drivesModel.Computer.Items.Add(new(new("ui-small", "small", false, 2048, null, false)));

@@ -23,6 +23,7 @@ public interface IExternalDocumentWork
 {
     Task<ExternalDocument?> FindAsync(Guid id, CancellationToken ct);
     Task<ExternalDocument?> FindPathAsync(string key, CancellationToken ct);
+    Task<IReadOnlyList<ExternalDocument>> FindTreeAsync(string path, CancellationToken ct);
     Task TrackAsync(ExternalDocument document, CancellationToken ct);
     Task AuditAsync(Operation operation, CancellationToken ct);
 }

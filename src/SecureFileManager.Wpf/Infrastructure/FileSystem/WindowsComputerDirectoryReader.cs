@@ -11,7 +11,8 @@ public sealed class WindowsComputerDirectoryReader(PersonalStorage personal) : I
 
     internal string Normalize(string path)
     {
-        if (!Core.Security.ExternalPathSyntax.IsValid(path) || !Path.IsPathFullyQualified(path))
+        if (!Core.Security.ExternalPathSyntax.IsValid(path) || !Path.IsPathFullyQualified(path) ||
+            path.Split('\\').Any(x => x.StartsWith(".sfm-", StringComparison.OrdinalIgnoreCase)))
             throw new FileCommandException(FileStatus.Invalid);
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         if (Private(full)) throw new FileCommandException(FileStatus.Denied);
@@ -52,6 +53,7 @@ public sealed class WindowsComputerDirectoryReader(PersonalStorage personal) : I
                 if (entries.Count >= FileRules.ListLimit) { truncated = true; break; }
                 try
                 {
+                    if (item.Name.StartsWith(".sfm-", StringComparison.OrdinalIgnoreCase)) continue;
                     var attributes = item.Attributes;
                     var folder = (attributes & FileAttributes.Directory) != 0;
                     var link = (attributes & FileAttributes.ReparsePoint) != 0;

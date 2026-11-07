@@ -9,4 +9,6 @@ public partial class NameDialog : Window
         NameInput.Text = folder ? "" : ".txt"; Loaded += (_, _) => { NameInput.Focus(); NameInput.Select(0, 0); };
     }
     private void Accept(object sender, RoutedEventArgs e) { DialogResult = true; }
+    public NameDialog(string prompt, string initial) : this(true)
+    { Prompt.Text = prompt; NameInput.Text = initial; }
 }

@@ -38,6 +38,13 @@ public sealed class WindowsExternalDocumentStorage(PersonalStorage personal) : I
                 _file = SafeNativeFile.Open(Path, false, write: writable);
                 if (writable && (SafeNativeFile.Information(_file).Attributes & 1) != 0) throw new FileCommandException(FileStatus.Denied);
                 _pins.AddRange(SafeNativeFile.Pin(personal.StorageRoot));
+                var operations = System.IO.Path.Combine(personal.StorageRoot, ".external-operations");
+                if (Directory.Exists(operations))
+                {
+                    _pins.AddRange(SafeNativeFile.Pin(operations));
+                    if (Directory.EnumerateDirectories(operations).Any() || Directory.EnumerateFiles(operations).Any(x => System.IO.Path.GetFileName(x) != "lock"))
+                        throw new FileCommandException(FileStatus.RecoveryRequired);
+                }
                 var root = System.IO.Path.Combine(personal.StorageRoot, ".external-editor");
                 Directory.CreateDirectory(root); _pins.AddRange(SafeNativeFile.Pin(root));
                 _area = System.IO.Path.Combine(root, Convert.ToHexString(SHA256.HashData(Utf8.GetBytes(Path.ToUpperInvariant()))));

@@ -7,7 +7,7 @@ public sealed class TextEditorViewModel : ObservableObject, IDisposable
     private readonly ITextDocumentService _files; private readonly IUserSession _session; private readonly IFileDialogs _dialogs;
     private readonly long _revision; private readonly Guid _user;
     private readonly Guid _id; private string _version, _original, _text, _error = ""; private bool _busy, _valid = true;
-    public string Name { get; }
+    public string Name { get; private set; }
     public Guid DocumentId => _id;
     public bool IsExternal { get; }
     public string Format => DocumentValidator.Format(Name).ToString().ToUpperInvariant();
@@ -90,6 +90,8 @@ public sealed class TextEditorViewModel : ObservableObject, IDisposable
             var result = await _files.ReloadAsync(_id);
             if (_session.Revision != _revision) return;
             if (!result.Succeeded) { Error = result.Message; return; }
+            Name = result.Value!.Name; RaisePropertyChanged(nameof(Name)); RaisePropertyChanged(nameof(Format));
+            RaisePropertyChanged(nameof(FormatLabel)); RaisePropertyChanged(nameof(IsStructured));
             _version = result.Value!.Version; _original = result.Value.Content; Text = _original;
             RaisePropertyChanged(nameof(IsDirty)); RaisePropertyChanged(nameof(DirtyLabel)); RaisePropertyChanged(nameof(Title));
             Error = result.Value.Validation is { IsValid: false } issue ? issue.Description : "Версия с диска загружена.";

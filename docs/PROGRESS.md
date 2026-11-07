@@ -1,5 +1,55 @@
 # Журнал фактического прогресса
 
+## 2026-11-07 — 11.03, создание/copy/move/rename внешних объектов
+
+По поручению пользователя после его проверки/коммита11.02 начат следующий этап.
+Исходный Git чистый, HEAD4ea3a94. Сверены AGENTS/TECHNICAL_SPEC/DESIGN_SPEC/TASKS,
+решения/прогресс, external editor/store/native handles/browser/metadata/audit и тесты;
+PNG-концепт открыт. Среда SDK9.0.200, MSSQL$SQLEXPRESS Running, WPF/net9 сохранён.
+
+Реализованы ExternalFileOperationService и WindowsExternalOperationStorage: create
+файлов/папок, copy ограниченных деревьев с бинарными/пустыми папками, move/rename
+на одном томе, no overwrite/merge/self-copy, реальные Windows ACL/handles и общий
+metadata+audit commit. ExternalDocumentStore переиспользован без schema/migration:
+новые файлы регистрируются, учтённые move-потомки сохраняют GUID и получают новые paths/
+PathKeys. Папки имеют безопасный external audit snapshot без фиктивного FileId.
+Меню «Действия» в прежней вкладке, Windows picker/имя/подтверждение, обновление списка;
+старый редактор после rename/reload обновляет имя/формат, stale save не затирает файл.
+
+Staging .sfm-op-GUID рядом с target и durable plans в StorageRoot/.external-operations,
+global межпроцессный lock. При rollback очищается только совпавший собственный target
+либо move возвращается назад; неопределённый commit проверяется correlation+target.
+Внешние изменения сохраняются для разбора. Pending11.03 блокирует внешний editor,
+editor-pending11.02 запрещает copy/move источника. Служебный .sfm- namespace скрыт/
+недоступен браузеру. Границы private Storage/SQL/session/audit не отключались.
+
+Проверки:
+- Debug build --artifacts-path artifacts/external-operations —0 warnings/errors.
+- Первый targeted7/8: один тест не подтверждал reload (ReloadDialogs.Reload=false),
+  редактор корректно сохранял старое имя. В тесте включено явное подтверждение,
+  assertions не ослаблены. Затем10/10 SQL/FS, включая дерево rollback/лимиты/concurrent.
+- Full scripts/Test-Stage08.ps1 -ArtifactsPath D:/SecureFileManager/artifacts/external-operations
+  -ResultsDirectory D:/SecureFileManager/artifacts/external-operations-full-20261107:
+  **185 passed,0 failed,0 skipped**, VSTest38с;99 SQL+86 прочих cases. TRX
+  start14:22:57.2693055+03:00, finish14:23:37.9514420+03:00,40.682с.
+- Новая GUID-БД fixture и TEMP/run-e3623ceeb86947cb8fe8f79cdca7d03d очищены только
+  своим cleanup. Рабочие SQL/Storage/реальные пользовательские файлы не менялись.
+- WPF STA: реальные DI aliases, шесть команд меню, две компоновки/высота таблицы/
+  binding trace; full PASS. Отдельный render-прогон также1/1, compact bitmap150 открыт
+  визуально. Рендеры в ignored artifacts/external-operations-renders, не native DPI.
+- Release build —0 warnings/errors. EF has-pending-model-changes — изменений нет;
+  четвёртая миграция/обновление рабочей БД не требуются.
+
+Документация: EXTERNAL_OPERATIONS (архитектура/алгоритм/доказательства/ограничения/
+короткая native-приёмкаNOT RUN); README/TASKS/TECHNICAL_SPEC/DESIGN_SPEC/DECISIONS и
+архитектурные дополнения обновлены. Схема/старые Entities/User.Id/passwords/StorageRoot/
+пакеты не менялись, коммит не создавался. Основные ограничения: один выбор за раз,
+1000 узлов/100МиБ на файл/1ГиБ всего, move только один том, case-only rename нет;
+SQL+NTFS не атомарны, незнакомые/частично очищенные планы требуют ручного разбора.
+Прямой Windows owner/admin вне threat boundary, реальные disk-full/power-loss не
+воспроизводились. Native приёмка остаётся открытой. Следующий этап11.04: удаление/
+Корзина и ZIP во внешних папках, без их скрытой реализации в11.03.
+
 ## 2026-11-07 — Рабочая БД11.02 подготовлена по поручению пользователя
 
 Реальный Development target проверен: .\SQLEXPRESS/SecureFileManagerDB/WindowsAuth/TLS.

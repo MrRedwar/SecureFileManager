@@ -1,5 +1,11 @@
 # Архитектура хранения и расширение A → B
 
+Дополнение11.03: общие create/copy/move/rename используют исходный ExternalDocumentStore
+без новой схемы, Windows ACL/handles и staging/plans. Move на том же томе сохраняет
+физическую identity/ACL и GUID известных metadata; copy получает свои target records.
+Папки представлены в аудите path snapshots, не ложными ExternalDocument строками.
+См. [EXTERNAL_OPERATIONS](EXTERNAL_OPERATIONS.md) для лимитов/compensation/recovery.
+
 Дополнение11.02: реализован общий внешний редактор без личного OwnerId в новой
 ExternalDocuments. Физическая запись сохраняет ACL/identity исходника через write handle;
 backup/plan находятся в StorageRoot/.external-editor, recovery сверяет SQL correlation+path

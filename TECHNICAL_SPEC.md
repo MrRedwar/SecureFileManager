@@ -2,6 +2,13 @@
 
 ## Изменение области 07.11.2026 — общие файлы компьютера
 
+Дополнение11.03: создание внешних файлов/папок, copy деревьев и move/rename на одном
+локальном томе, без overwrite/merge. Лимиты1000 узлов/100МиБ на файл/1ГиБ всего,
+фактический streaming budget, no self-copy/links/private Storage. Общие metadata+audit
+используют существующую схему; папки аудитируются внешним снимком без ложного FileId.
+Подготовка/staging/plan, no-replace publish, rollback/recovery и ограничения описаны в
+docs/EXTERNAL_OPERATIONS.md. Межтомный move и внешние delete/ZIP пока не включены.
+
 Дополнение11.02: реализуется открытие/сохранение внешних TXT/JSON/XML через общий
 редактор и отдельные ExternalDocuments без OwnerId. Требуются Windows write permission,
 version/hash/RowVersion conflict checks, UTF-8/JSON/XML validation, metadata+audit commit

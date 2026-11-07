@@ -12,6 +12,18 @@
    <Button Content="Обновить" Command="{Binding RefreshCommand}" Margin="0,0,6,6"/>
    <Button Content="Открыть" Command="{Binding OpenCommand}" Margin="0,0,6,6" ToolTip="Открыть папку или TXT/JSON/XML в редакторе"/>
    <Button Content="Восстановить" Command="{Binding RecoverCommand}" Margin="0,0,6,6" ToolTip="Проверить незавершённое сохранение выбранного внешнего файла по SQL и резервной копии"/>
+   <Menu Margin="0,0,6,6" Background="{DynamicResource Brush.Sand100}" Foreground="{DynamicResource Brush.TextPrimary}" VerticalAlignment="Center" AutomationProperties.Name="Действия с файлами компьютера">
+    <MenuItem Header="Действия">
+     <MenuItem Header="Создать файл" Command="{Binding CreateFileCommand}"/>
+     <MenuItem Header="Создать папку" Command="{Binding CreateFolderCommand}"/>
+     <Separator/>
+     <MenuItem Header="Копировать в…" Command="{Binding CopyCommand}"/>
+     <MenuItem Header="Переместить в…" Command="{Binding MoveCommand}"/>
+     <MenuItem Header="Переименовать" Command="{Binding RenameCommand}"/>
+     <Separator/>
+     <MenuItem Header="Проверить операции" Command="{Binding RecoverOperationsCommand}" ToolTip="Восстановление по сохранённым планам и SQL; неизвестные данные не удаляются"/>
+    </MenuItem>
+   </Menu>
   </WrapPanel>
   <Grid Grid.Row="1" Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Путь к папке компьютера" ToolTip="Абсолютный локальный путь, например C:\Users; пустая строка — список дисков">
