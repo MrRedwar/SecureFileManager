@@ -1,5 +1,45 @@
 # Журнал фактического прогресса
 
+## 2026-11-07 — 11.01, общий просмотр существующих файлов компьютера
+
+Пользователь разрешил расширение программы и общую видимость существующих внешних
+файлов всем app-пользователям. Исходный Git чистый, HEAD14c08b0. Прежний запретB
+изменён прямым поручением в TECHNICAL_SPEC/DESIGN_SPEC/DECISIONS/TASKS.
+Внешний read-only браузер расположен в новой вкладке существующего раздела «Диски»:
+открыть диск, адрес/Enter, папки/двойной щелчок, вверх, refresh, поиск и сортировка,
+тип/размер/дата/примечание. Шесть разделов и ресурсы оформления сохранены.
+
+Core: ComputerBrowseService/DTO/read-only port, active SQL user/session/revision,
+обязательный аудит до выдачи списка. Wpf: WindowsComputerDirectoryReader с pinned
+предками и запретом reparse/private Storage/namespace обходов, ограниченным перечислением;
+ComputerBrowserView/VM со сбросом/отменой/защитой от поздних ответов. Files/ownership/SQL
+schema не менялись, внешние объекты не усваиваются в personal Files. Журнал знает
+фиксированный COMPUTER_DIRECTORY_LISTED, абсолютные пути в personal snapshot не пишутся.
+
+Среда: Windows/SDK9.0.200, MSSQL$SQLEXPRESS Running. Debug и Release build в
+artifacts/computer-browser — PASS, 0 warnings/errors. Первая компиляция нашла неверную
+форму параметризованного CanExecute; добавлен optional predicate в прежний AsyncRelayCommand,
+существующие вызовы не меняют поведение. 4 новых unit/VM и2 новых SQL/FS теста.
+Первые два точечных прогона4/5 выявили высоту таблицы в1024×640; исправлены Stretch и
+компактная панель, без ослабления assertion. Затем5/5. Compact render визуально открыт;
+WPF fixture/bitmap150 не объявляются настоящим native DPI/UI-прогоном.
+
+Полный scripts/Test-Stage08.ps1 -ArtifactsPath D:/SecureFileManager/artifacts/computer-browser
+-ResultsDirectory D:/SecureFileManager/artifacts/computer-browser-full-20261107:
+166 passed /0 failed /0 skipped, VSTest42с; 80 SQL и86 прочих cases. Новая GUID-БД fixture
+и TEMP/run-16b84b841bc2427cbd7a59f8bf51024b очищены только своим cleanup. Рабочие
+БД/Storage/User.Id/хеши/пользовательские файлы и чужие результаты не менялись.
+Опциональный ResultsDirectory в test script позволил сохранить этот TRX отдельно,
+без перезаписи прежних stage08-результатов. После полного прогона сортировка колонок
+уточнена на raw bytes/UTC, затронутый WPF-тест повторён:1/1 PASS, включая numeric sort
+assert, TRX artifacts/computer-browser-targeted/browser-final-wpf.trx.
+
+Документация: COMPUTER_BROWSER с контрактами/границами/командами/короткой ручной
+приёмкой; обновлены README/ARCHITECTURE/STORAGE_ARCHITECTURE/TEST_REPORT как дополнения
+к историческому MVP, а не замена его доказательств. 11.01 автоматически проверен,
+checkbox остаётся открыт до native-приёмки;11.02–11.04 запланированы, не реализованы.
+Нет Python/масштабного рефакторинга/новых пакетов/миграций/коммитов.
+
 ## 2026-11-03 — Заключительный этап 09–10 (текущий итог)
 
 Поручение пользователя объединяет 09 и 10. Исходное дерево чистое, HEAD 598b175,

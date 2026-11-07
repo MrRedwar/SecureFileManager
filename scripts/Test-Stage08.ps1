@@ -1,7 +1,8 @@
 param(
     [string] $TestParent = (Join-Path ([IO.Path]::GetTempPath()) 'SecureFileManager.Stage08'),
     [string] $ArtifactsPath = '',
-    [string] $Filter = ''
+    [string] $Filter = '',
+    [string] $ResultsDirectory = ''
 )
 $ErrorActionPreference = 'Stop'
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -47,6 +48,7 @@ try {
         $logName = if ($Filter) { 'stage08-targeted.trx' } else { 'stage08.trx' }
         $testArguments = @('test','SecureFileManager.sln','-c','Debug','--logger',("trx;LogFileName=" + $logName))
         if ($ArtifactsPath) { $testArguments += @('--artifacts-path', $ArtifactsPath) }
+        if ($ResultsDirectory) { $testArguments += @('--results-directory', $ResultsDirectory) }
         if ($Filter) { $testArguments += @('--filter', $Filter) }
         & dotnet @testArguments
         $testExit = $LASTEXITCODE

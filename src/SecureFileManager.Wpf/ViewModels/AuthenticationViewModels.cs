@@ -10,10 +10,10 @@ public sealed class PasswordInput(string password, string confirmation = "")
     public void Clear() { Password = string.Empty; Confirmation = string.Empty; }
     public override string ToString() => "[Password input omitted]";
 }
-public sealed class AsyncRelayCommand(Func<object?, Task> execute, Func<bool> canExecute) : ICommand
+public sealed class AsyncRelayCommand(Func<object?, Task> execute, Func<bool> canExecute, Predicate<object?>? parameterAllowed = null) : ICommand
 {
     private bool _running;
-    public bool CanExecute(object? parameter) => !_running && canExecute();
+    public bool CanExecute(object? parameter) => !_running && canExecute() && (parameterAllowed?.Invoke(parameter) ?? true);
     public async void Execute(object? parameter)
     {
         if (!CanExecute(parameter)) { (parameter as PasswordInput)?.Clear(); return; }

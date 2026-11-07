@@ -35,7 +35,8 @@ public sealed class JournalService(IUserSession session, IUserRepository users, 
             ActorNameSnapshot = actor.Username, OccurredAtUtc = o.OccurredAtUtc, OperationType = o.OperationType, Result = o.Result,
             TargetPathSnapshot = RelativePathSyntax.IsValid(o.TargetPathSnapshot) ? o.TargetPathSnapshot : null,
             Details = o.Details is "LOGIN_LOCKED" or "PERSONAL_STORAGE_PREPARED" or "METADATA_SYNCHRONIZED" or
-                "RECOVERY_FINALIZED" or "RECOVERY_ROLLED_BACK" or "STORAGE_DIAGNOSED" or "STORAGE_DIAGNOSIS_PARTIAL" ? o.Details : null
+                "RECOVERY_FINALIZED" or "RECOVERY_ROLLED_BACK" or "STORAGE_DIAGNOSED" or "STORAGE_DIAGNOSIS_PARTIAL" or
+                "COMPUTER_DIRECTORY_LISTED" ? o.Details : null
         }).ToArray(), result.Value.HasMore));
     }
     public async Task CheckHealthAsync(CancellationToken ct = default)

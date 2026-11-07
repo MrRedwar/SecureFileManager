@@ -79,6 +79,8 @@ public sealed class WpfShellTests
                 var shell = graph.GetRequiredService<MainWindow>();
                 Assert.NotNull(graph.GetRequiredService<Core.Files.IFileService>());
                 Assert.NotNull(graph.GetRequiredService<IFileDialogs>());
+                Assert.NotNull(graph.GetRequiredService<IComputerBrowseService>());
+                Assert.Same(graph.GetRequiredService<ComputerBrowserViewModel>(), graph.GetRequiredService<DrivesViewModel>().Computer);
                 Assert.Same(graph.GetRequiredService<IFileService>(), graph.GetRequiredService<IArchiveService>());
                 Assert.Same(graph.GetRequiredService<IFileService>(), graph.GetRequiredService<IStorageDiagnostics>());
                 Assert.Same(graph.GetRequiredService<JournalViewModel>().Status, graph.GetRequiredService<SettingsViewModel>().Status);
@@ -125,6 +127,21 @@ public sealed class WpfShellTests
                         Assert.Equal(0d, capacityBars[1].Value);
                         Assert.All(capacityBars, bar => Assert.Equal(BindingMode.OneWay,
                             BindingOperations.GetBinding(bar, ProgressBar.ValueProperty)!.Mode));
+                        var driveTabs = Descendants(root).OfType<TabControl>().Single(x => AutomationProperties.GetName(x) == "Просмотр дисков и папок");
+                        driveTabs.SelectedIndex = 1; root.UpdateLayout();
+                        Assert.Contains(Descendants(root), x => x is ComputerBrowserView);
+                        var browserGrid = Descendants(root).OfType<DataGrid>().Single(x => AutomationProperties.GetName(x) == "Файлы компьютера");
+                        if (export is not null) Export(root, size, 1.5, Path.Combine(export, $"computer-{size.Width}x{size.Height}-150pct-render.png"));
+                        Assert.True(browserGrid.ActualHeight >= 70, $"Computer browser table {browserGrid.ActualWidth}x{browserGrid.ActualHeight}, root {size}.");
+                        Assert.Contains(Descendants(root).OfType<TextBox>(), x => AutomationProperties.GetName(x) == "Путь к папке компьютера");
+                        // Sorting uses raw bytes, not formatted strings such as "10 КБ" and "2 КБ".
+                        drivesModel.Computer.Items.Add(new(new("ui-large", "large", false, 10240, null, false)));
+                        drivesModel.Computer.Items.Add(new(new("ui-small", "small", false, 2048, null, false)));
+                        Assert.Equal("Data.SizeBytes", browserGrid.Columns[2].SortMemberPath);
+                        browserGrid.Items.SortDescriptions.Add(new("Data.SizeBytes", System.ComponentModel.ListSortDirection.Ascending));
+                        Assert.Equal("small", Assert.IsType<ComputerListItem>(browserGrid.Items[0]).Name);
+                        browserGrid.Items.SortDescriptions.Clear(); drivesModel.Computer.Items.Clear();
+                        driveTabs.SelectedIndex = 0; root.UpdateLayout();
                     }
                     var navigation = Descendants(root).OfType<ListBox>().Single(x => AutomationProperties.GetName(x) == "Разделы приложения");
                     Assert.Same(section, navigation.SelectedItem);

@@ -1,5 +1,12 @@
 # Архитектура Secure File Manager — итоговая C#-версия
 
+Дополнение07.11.2026: реализован общий read-only браузер внешних локальных папок —
+IComputerBrowseService/ComputerBrowseService в Core, WindowsComputerDirectoryReader
+и ComputerBrowserView/VM в Wpf, вкладка раздела «Диски». Видимость общая по Windows ACL,
+личная Files не усваивает внешние объекты. Это первый шаг11.01 нового объёма;
+изменяющие внешние операции/новая metadata model ещё не реализованы.
+Остальная схема/слои ниже описывают сохранённый MVP. См. [COMPUTER_BROWSER](COMPUTER_BROWSER.md).
+
 Снимок: HEAD `598b175` и документационный этап 09–10 от 03.11.2026.
 Приложение локальное, Windows/WPF; внешнего API, облака, режима B и фоновой службы нет.
 Исторические предложения в STORAGE_ARCHITECTURE не означают наличие Locations/grants.

@@ -21,6 +21,7 @@ public sealed record AuditListItem(string OccurredAt, string Actor, string Actio
         "RECOVERY_ROLLED_BACK" => "Отменена незавершённая операция.",
         "STORAGE_DIAGNOSED" => "Неразрушающая диагностика завершена.",
         "STORAGE_DIAGNOSIS_PARTIAL" => "Диагностика неполная; требуется проверка.",
+        "COMPUTER_DIRECTORY_LISTED" => "Просмотр общего каталога компьютера. Содержимое файлов не читалось.",
         _ => o.Result == OperationResult.Denied ? "Действие отклонено политикой доступа или безопасности." :
             o.Result == OperationResult.Failed ? "Действие не завершено. Содержимое документа и системные пути скрыты." :
             "Действие выполнено; обязательная запись сохранена."
