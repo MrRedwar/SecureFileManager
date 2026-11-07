@@ -1,5 +1,11 @@
 # Архитектура хранения и расширение A → B
 
+Дополнение11.02: реализован общий внешний редактор без личного OwnerId в новой
+ExternalDocuments. Физическая запись сохраняет ACL/identity исходника через write handle;
+backup/plan находятся в StorageRoot/.external-editor, recovery сверяет SQL correlation+path
+и не откатывает чужой committed save. In-place write/аварийные ограничения и схема —
+[EXTERNAL_EDITOR](EXTERNAL_EDITOR.md). Личный режимA сохранён; move/rename/delete ещё не реализованы.
+
 **Актуализация07.11.2026:** пользователь разрешил общую видимость внешних файлов
 всем пользователям приложения. В11.01 реализован read-only IComputerBrowseService
 поверх локального WindowsComputerDirectoryReader, без Locations/grants и без auto-adopt

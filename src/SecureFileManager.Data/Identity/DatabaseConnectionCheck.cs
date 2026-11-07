@@ -8,6 +8,6 @@ public sealed class DatabaseConnectionCheck(IDbContextFactory<AppDbContext> fact
     public async Task<bool> CanConnectAsync(CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
-        return await db.Database.CanConnectAsync(ct);
+        return await db.Database.CanConnectAsync(ct) && !(await db.Database.GetPendingMigrationsAsync(ct)).Any();
     }
 }

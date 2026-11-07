@@ -4,11 +4,12 @@ using SecureFileManager.Core.Interfaces;
 namespace SecureFileManager.Wpf.ViewModels;
 public sealed class TextEditorViewModel : ObservableObject, IDisposable
 {
-    private readonly IFileService _files; private readonly IUserSession _session; private readonly IFileDialogs _dialogs;
+    private readonly ITextDocumentService _files; private readonly IUserSession _session; private readonly IFileDialogs _dialogs;
     private readonly long _revision; private readonly Guid _user;
     private readonly Guid _id; private string _version, _original, _text, _error = ""; private bool _busy, _valid = true;
     public string Name { get; }
     public Guid DocumentId => _id;
+    public bool IsExternal { get; }
     public string Format => DocumentValidator.Format(Name).ToString().ToUpperInvariant();
     public string FormatLabel => Format + " · UTF-8 · до 10 МиБ";
     public bool IsStructured => Format != "TXT";
@@ -23,8 +24,9 @@ public sealed class TextEditorViewModel : ObservableObject, IDisposable
     public ICommand ReloadCommand { get; }
     public event EventHandler? SessionEnded;
     private readonly System.Windows.Threading.Dispatcher? _dispatcher;
-    public TextEditorViewModel(IFileService files, IUserSession session, IFileDialogs dialogs, TextDocument document)
+    public TextEditorViewModel(ITextDocumentService files, IUserSession session, IFileDialogs dialogs, TextDocument document, bool external = false)
     {
+        IsExternal = external;
         _files = files; _session = session; _dialogs = dialogs; _revision = session.Revision; _user = session.Current?.Id ?? Guid.Empty;
         _id = document.Id; Name = document.Name; _version = document.Version; _text = _original = document.Content;
         SaveCommand = new AsyncRelayCommand(_ => SaveAsync(), () => IsUsable && IsDirty);

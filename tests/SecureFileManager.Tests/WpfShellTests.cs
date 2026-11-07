@@ -80,6 +80,8 @@ public sealed class WpfShellTests
                 Assert.NotNull(graph.GetRequiredService<Core.Files.IFileService>());
                 Assert.NotNull(graph.GetRequiredService<IFileDialogs>());
                 Assert.NotNull(graph.GetRequiredService<IComputerBrowseService>());
+                Assert.NotNull(graph.GetRequiredService<IExternalDocumentService>());
+                Assert.Same(graph.GetRequiredService<IFileDialogs>(), graph.GetRequiredService<IExternalEditorDialogs>());
                 Assert.Same(graph.GetRequiredService<ComputerBrowserViewModel>(), graph.GetRequiredService<DrivesViewModel>().Computer);
                 Assert.Same(graph.GetRequiredService<IFileService>(), graph.GetRequiredService<IArchiveService>());
                 Assert.Same(graph.GetRequiredService<IFileService>(), graph.GetRequiredService<IStorageDiagnostics>());

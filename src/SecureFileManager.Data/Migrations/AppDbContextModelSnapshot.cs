@@ -22,6 +22,51 @@ namespace SecureFileManager.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("SecureFileManager.Core.Entities.ExternalDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("PathKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PathKey")
+                        .IsUnique();
+
+                    b.ToTable("ExternalDocuments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ExternalDocuments_Size", "[SizeBytes] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("SecureFileManager.Core.Entities.FileRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -113,6 +158,13 @@ namespace SecureFileManager.Data.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
 
+                    b.Property<Guid?>("ExternalDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ExternalPathSnapshot")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<Guid?>("FileId")
                         .HasColumnType("uniqueidentifier");
 
@@ -139,6 +191,8 @@ namespace SecureFileManager.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CorrelationId");
+
+                    b.HasIndex("ExternalDocumentId");
 
                     b.HasIndex("FileId");
 
@@ -214,6 +268,11 @@ namespace SecureFileManager.Data.Migrations
 
             modelBuilder.Entity("SecureFileManager.Core.Entities.Operation", b =>
                 {
+                    b.HasOne("SecureFileManager.Core.Entities.ExternalDocument", null)
+                        .WithMany()
+                        .HasForeignKey("ExternalDocumentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("SecureFileManager.Core.Entities.FileRecord", null)
                         .WithMany()
                         .HasForeignKey("FileId")

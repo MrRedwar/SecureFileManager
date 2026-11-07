@@ -1,5 +1,38 @@
 # Решения и открытые вопросы
 
+## 2026-11-07 — Контролируемое обновление рабочей БД11.02
+
+Пользователь прямо поручил завершить подготовку БД. Проверен реальный local Development
+target, выполнен уникальный COPY_ONLY backup/VERIFYONLY WITH CHECKSUM в стандартном
+SQL backup directory. Добавочная EF SQL-миграция применена в guarded transaction:
+старые Users/Files/Operations заблокированы на время DDL, полные серверные digests
+всех прежних данных совпали перед COMMIT. Значения/секреты/digests не выводились.
+Counts2/9/136 сохранены, ExternalDocuments0, migrations3/pending0. Реальный DI/EF probe
+записи metadata+audit целиком откатан, тестовых строк не осталось. Startup по-прежнему
+не выполняет авто-миграции. Блокер рабочей схемы снят; native-приёмка не утверждается.
+Подробности/backup path: DB_UPDATE_1102.md. Storage/реальные файлы/SQL accounts не менялись.
+
+## 2026-11-07 — 11.02, общий редактор внешних документов
+
+Продолжение плана разрешено пользователем. Выделен ITextDocumentService для общего
+редактора; прежний личный IFileService наследует этот порт. Внешний документ имеет
+общий GUID/нормализованный PathKey в новой ExternalDocuments, без OwnerId. Operations
+получает отдельные nullable external FK/path; смешение с личным FileId запрещено.
+Миграция только добавочная, рабочая БД не обновляется автоматически; установка после
+backup/review описана в EXTERNAL_EDITOR. Нет изменения User.Id/паролей/личных Files.
+
+Save использует прежний Windows handle/ACL: GENERIC_WRITE, запрет конкурентного writer,
+SHA-256/identity и SQL RowVersion. До in-place write создаются две durable версии и план
+в закрытой общему браузеру StorageRoot/.external-editor. Это сохраняет ACL исходника
+и не подменяет Windows write permission разрешением rename каталога. Нет обещания
+атомарного изменения SQL+NTFS или crash-proof write: backup/plan и явное восстановление
+обязательны, неожиданное содержимое автоматически не уничтожается. Полный power loss
+не проверялся. Commit проверяется по correlation+path, без actor-фильтра для общего файла.
+
+Нормализованный путь пока определяет общую идентичность; внешнее перемещение даёт
+новый ID. Будущие move/rename/ZIP/delete остаются11.03/11.04. Новых пакетов/TFM нет.
+Лимиты UTF-8/XML/JSON, private Storage, session/active SQL/audit сохраняются.
+
 ## 2026-11-07 — Общее внешнее пространство по прямому поручению пользователя
 
 Пользователь попросил расширить программу до полноценного файлового менеджера и уточнил:

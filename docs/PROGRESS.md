@@ -1,5 +1,96 @@
 # Журнал фактического прогресса
 
+## 2026-11-07 — Рабочая БД11.02 подготовлена по поручению пользователя
+
+Реальный Development target проверен: .\SQLEXPRESS/SecureFileManagerDB/WindowsAuth/TLS.
+Baseline:2 миграции, Users2/Files9/Operations136, новые объекты отсутствовали. Создана
+уникальная COPY_ONLY backup WITH CHECKSUM в штатном SQL-каталоге; RESTORE VERIFYONLY
+WITH CHECKSUM успешно. Затем проверенная добавочная EF SQL-миграция применена внутри
+внешней Serializable-транзакции с TABLOCKX/HOLDLOCK старых таблиц. Полные digests
+Users/Files/старых Operations совпали до COMMIT; сами данные/хеши/секреты не выводились.
+История теперь3, ExternalDocuments создана пустой, external FK trusted/NO ACTION,
+индекс PathKey unique и nullable audit columns проверены. Старые counts2/9/136 сохранены.
+
+Реальный App.CreateServices/DatabaseConnectionCheck.CanConnectAsync:true; applied3,
+pending0. AppDbContext вставил внешний metadata record и audit с FK в обязательной
+rollback-транзакции; RowVersion получен. После отката probe ID отсутствует, counts
+2/9/136/0. Финальный read-only SQL подтвердил это и encrypt_option TRUE. Рабочая БД
+не пересоздавалась/не очищалась, Storage/реальные файлы/учёткиSQL не менялись.
+175/175 повторно не запускались: код не менялся, выполнена целевая live EF-проверка.
+
+Отчёт/backup path/артефакты: docs/DB_UPDATE_1102.md. Обновлены README/PERSISTENCE/
+EXTERNAL_EDITOR/DECISIONS/TASKS. Блокер БД снят, native-приёмка11.02 остаётся открытой;
+прежние записи «рабочая БД не обновлялась» ниже — история до нового поручения.
+Коммит не создан, прежние незакоммиченные исходники сохранены.
+
+### Последнее уточнение11.02,07.11.2026
+
+Дополнительная metadata-проверка после save прошла1/1. Усиление audit rollback test
+выявило дефект11.02: старые байты восстанавливались, а LastWriteTimeUtc менялась и
+расходилась с SQL. Исправлено: plan хранит BeforeModifiedUtc, SafeNativeFile.SetModifiedUtc
+восстанавливает её через удерживаемый write handle. Точечные rollback/recovery3/3,
+затем окончательный полный прогон artifacts/external-editor-final-metadata-20261107:
+**175 passed,0 failed/skipped,48с**. TRX start13:27:26.0685715+03:00,
+finish13:28:15.7637320+03:00, интервал49.695с. TEMP/run-f6c1c2ad10824b599a7ea1c47a78cfec
+и новая GUID-БД очищены только своим cleanup. Release после исправления —0 warnings/errors.
+Прежние результаты и неуспешный targetedTRX сохранены; нижняя запись о38с — предыдущий
+снимок до усиления metadata assert, не окончательный результат. EXTERNAL_EDITOR.md
+содержит итог, ограничения и инструкцию добавочной миграции; рабочая БД не обновлялась.
+
+## 2026-11-07 — 11.02, внешний TXT/JSON/XML редактор
+
+Продолжение плана поручено пользователем; исходный Git чистый, HEAD42e66e9. Сверены
+AGENTS/TECHNICAL_SPEC/DESIGN_SPEC/TASKS, решения, текущий общий браузер, личные
+editor/file/SQL/recovery/audit/session компоненты и тесты; PNG-концепт открыт.
+Нативную приёмку11.01 не выдумываем, её checkbox остаётся открыт.
+
+Core: ITextDocumentService выделен для переиспользования прежнего редактора;
+ExternalDocumentService со своим store/physical ports, общим ExternalDocument GUID без
+OwnerId, PathKey/physical fingerprint/RowVersion и recovery. Data: ExternalDocumentStore
+Serializable/active User/metadata+audit, новая ExternalDocuments, nullable external FK/path
+в Operations. Создана добавочная20261107101211_AddExternalDocuments, модель/snapshot
+согласованы. Старые User.Id/пароли/личные Files и рабочая БД не менялись.
+
+Wpf: WindowsExternalDocumentStorage требует write rights, pinned ancestors/native handle,
+запрещает private Storage/reparse/hardlink/namespace обходы. In-place write сохраняет ACL
+и identity; durable before/after/plan в StorageRoot/.external-editor предшествует записи.
+Отказ компенсирует байты, неопределённый commit сверяется по correlation+path, неожиданные
+данные сохраняются для ручного разбора. Recover общих файлов не фильтрует writer по actor:
+пользовательB не откатывает committed saveA. Power-loss/SQL+NTFS атомарность не обещаются.
+Новый внешний editor доступен в прежней вкладке по Open/Enter/double-click; окно/dirty/
+validation/close/reload/session reset прежние, координатор различает scope+ID. Journal
+показывает свой external path/actor и ищет по snapshot, сырые parser messages не выводит.
+DatabaseConnectionCheck теперь проверяет pending migrations; неподготовленная БД не
+выдаётся за готовую. Никакого автоматического database update на старте.
+
+Проверки Windows/SDK9.0.200, SQL Express Running:
+- Debug build artifacts/external-editor — PASS,0 warnings/errors.
+- Точечный UI/ComputerBrowser5/5; начальный External filter12/12; затем full174/174.
+- После schema readiness проверки final scripts/Test-Stage08.ps1 -ArtifactsPath
+  D:/SecureFileManager/artifacts/external-editor -ResultsDirectory
+  D:/SecureFileManager/artifacts/external-editor-final-20261107 — **175/175 PASS**,
+  0 failed/skipped, VSTest38с.89 SQL и86 прочих cases,9 новых SQL/FS сценариев.
+- Новая GUID-БД fixture и TEMP/run-0646ae0ccba44de88671e4f2d33a565a очищены только своим
+  cleanup; рабочие документы/БД/старые результаты не затрагивались. Новый TRX в отдельном
+  ignored ResultsDirectory, не перезаписывает предыдущие прогоны.
+- Release build artifacts/external-editor — PASS,0 warnings/errors.
+- EF has-pending-model-changes — PASS, модель соответствует третьей миграции.
+- EF idempotent SQL script от AddLoginFailureWindow до AddExternalDocuments сохранён
+  artifacts/external-editor-additive.sql; Up только ADD/CREATE/index/FK, без изменения
+  прежних данных. Генерация не выполняет его в БД. Рабочая миграция NOT RUN.
+
+Документы обновлены; EXTERNAL_EDITOR содержит установку после backup/review, реальную
+схему, контракты, алгоритм/ограничения, результаты и короткую native-приёмкуNOT RUN.
+Новых пакетов/TFM/шрифтов/изображений/Python/коммитов нет. Известные ограничения:
+неатомарный in-place write с backup, аварийные частичные/подменённые данные требуют
+ручного разбора, внешние move/rename ещё дают другую path identity. Native DPI/GUI/
+keyboard/рабочее обновление схемы не подтверждены. Статус11.02 — частично (код/авто готовы),
+следующий шаг — backup/контролируемая миграция и ручная приёмка, затем11.03.
+
+Финальная сверка: TRX175 executed/passed,0 failed/notExecuted;38сVSTest и40.283с
+start/finish. Локальные ссылки обновлённых документов разрешаются, git diff --check
+без ошибок. Схемный SQL-скрипт не содержит UPDATE/DELETE/DROP прежних данных.
+
 ## 2026-11-07 — 11.01, общий просмотр существующих файлов компьютера
 
 Пользователь разрешил расширение программы и общую видимость существующих внешних

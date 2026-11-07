@@ -1,5 +1,14 @@
 # Persistence — этап 02
 
+**Актуализация11.02,07.11.2026:** добавлена третья миграция
+20261107101211_AddExternalDocuments: новая ExternalDocuments (общий GUID, Path/PathKey,
+SizeBytes/ModifiedAtUtc/Version/RowVersion, без OwnerId) и nullable external FK/path в
+Operations. SQL metadata+audit внешнего сохранения объединены ExternalDocumentStore.
+Up не меняет существующие User.Id/пароли/личные Files. Рабочая миграция07.11.2026
+выполнена после backup/VERIFYONLY с полной сверкой старых данных и EF rollback-probe:
+[DB_UPDATE_1102](DB_UPDATE_1102.md). Ограничения — [EXTERNAL_EDITOR](EXTERNAL_EDITOR.md).
+Нижеследующие секции хранят историю предыдущих этапов и не означают, что миграций по-прежнему две.
+
 | Таблица | Столбцы и ограничения |
 |---|---|
 | Users | Id GUID PK; Username nvarchar(50), required, unique; PasswordHash nvarchar(1024), required; CreatedAtUtc datetime2; IsActive bit default true; FailedLoginCount int >= 0; LockoutUntilUtc nullable datetime2 |

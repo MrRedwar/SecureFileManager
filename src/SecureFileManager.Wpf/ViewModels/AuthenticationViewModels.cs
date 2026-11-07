@@ -133,7 +133,7 @@ public sealed class AuthenticationWindowViewModel : ObservableObject
         {
             ConnectionStatus = _connection is not null && await _connection.CanConnectAsync()
                 ? "Подключение к БД проверено. Вход требует проверки пароля и аудита."
-                : "БД недоступна. Повторите проверку или закройте окно. Вход запрещён.";
+                : "БД недоступна или схема не подготовлена. Проверьте подключение и миграции, затем повторите проверку. Вход запрещён.";
         }
         catch { ConnectionStatus = "БД недоступна. Повторите проверку или закройте окно. Вход запрещён."; }
         finally { _checkingConnection = false; CommandManager.InvalidateRequerySuggested(); }

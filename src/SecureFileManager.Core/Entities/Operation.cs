@@ -15,6 +15,8 @@ public sealed class Operation
     public Guid? UserId { get; set; }
     public string? ActorNameSnapshot { get; set; }
     public Guid? FileId { get; set; }
+    public Guid? ExternalDocumentId { get; set; }
+    public string? ExternalPathSnapshot { get; set; }
     public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
     public OperationType OperationType { get; set; }
     public OperationResult Result { get; set; }

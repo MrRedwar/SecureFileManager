@@ -10,7 +10,8 @@
    <Button Content="Этот компьютер" Command="{Binding ComputerCommand}" Margin="0,0,6,6"/>
    <Button Content="Вверх" Command="{Binding ParentCommand}" Margin="0,0,6,6"/>
    <Button Content="Обновить" Command="{Binding RefreshCommand}" Margin="0,0,6,6"/>
-   <Button Content="Открыть папку" Command="{Binding OpenCommand}" Margin="0,0,6,6" ToolTip="Открыть выбранный диск или папку. Файлы пока доступны для просмотра сведений."/>
+   <Button Content="Открыть" Command="{Binding OpenCommand}" Margin="0,0,6,6" ToolTip="Открыть папку или TXT/JSON/XML в редакторе"/>
+   <Button Content="Восстановить" Command="{Binding RecoverCommand}" Margin="0,0,6,6" ToolTip="Проверить незавершённое сохранение выбранного внешнего файла по SQL и резервной копии"/>
   </WrapPanel>
   <Grid Grid.Row="1" Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Путь к папке компьютера" ToolTip="Абсолютный локальный путь, например C:\Users; пустая строка — список дисков">
@@ -19,7 +20,7 @@
    <Button Grid.Column="1" Content="Перейти" Command="{Binding GoCommand}" Margin="8,0,0,0"/>
   </Grid>
   <StackPanel Grid.Row="2" Margin="0,0,0,8">
-   <TextBlock Text="Общий просмотр по правам Windows. Сейчас — только сведения о файлах." Style="{StaticResource MutedText}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"/>
+   <TextBlock Text="Общие файлы по правам Windows. TXT, JSON и XML открываются в редакторе." Style="{StaticResource MutedText}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"/>
    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Поиск в папке компьютера" ToolTip="Поиск по имени среди загруженных объектов" MaxWidth="320" HorizontalAlignment="Left" MinWidth="200"/>
    <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource Brush.Danger}" TextWrapping="Wrap" Margin="0,6,0,0"/>
    <ProgressBar Height="4" IsIndeterminate="True" Visibility="{Binding IsLoading, Converter={StaticResource BoolVisibility}}"/>

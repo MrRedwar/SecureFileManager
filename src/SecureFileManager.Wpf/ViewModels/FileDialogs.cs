@@ -1,5 +1,6 @@
 using SecureFileManager.Core.Files;
 namespace SecureFileManager.Wpf.ViewModels;
+public interface IExternalEditorDialogs { void OpenExternalEditor(TextDocument document); }
 public interface IFileDialogs
 {
     string? AskName(bool folder);

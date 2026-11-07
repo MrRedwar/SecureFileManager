@@ -9,12 +9,9 @@ public sealed class WindowsComputerDirectoryReader(PersonalStorage personal) : I
     private bool Private(string path) => path.Equals(_privateRoot, StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith(_privateRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
-    private string Normalize(string path)
+    internal string Normalize(string path)
     {
-        if (string.IsNullOrWhiteSpace(path) || path.Length > 4000 || !Path.IsPathFullyQualified(path) ||
-            path.Length < 3 || !char.IsAsciiLetter(path[0]) || path[1] != ':' || path[2] != '\\' ||
-            path.Contains('/') || path[2..].Contains(':') || path.Any(char.IsControl) ||
-            path.Split('\\').Any(p => p is "." or ".." || p.Length > 0 && (p.EndsWith('.') || p.EndsWith(' '))))
+        if (!Core.Security.ExternalPathSyntax.IsValid(path) || !Path.IsPathFullyQualified(path))
             throw new FileCommandException(FileStatus.Invalid);
         var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         if (Private(full)) throw new FileCommandException(FileStatus.Denied);

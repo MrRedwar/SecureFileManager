@@ -22,11 +22,11 @@ internal static class SafeNativeFile
         public readonly DateTime ModifiedUtc => DateTime.FromFileTimeUtc(((long)Modified.dwHighDateTime << 32) | (uint)Modified.dwLowDateTime);
         public readonly bool Directory => (Attributes & 0x10) != 0;
     }
-    internal static SafeFileHandle Open(string path, bool directory, bool delete = false)
+    internal static SafeFileHandle Open(string path, bool directory, bool delete = false, bool write = false)
     {
         // FILE_LIST_DIRECTORY participates in share-access checks; attributes-only handles do not pin renames.
         var nativePath = @"\\?\" + Path.GetFullPath(path);
-        var h = CreateFile(nativePath, (directory ? Attributes | 1u : Read) | (delete ? DeleteAccess : 0), directory && !delete ? 3u : 1u,
+        var h = CreateFile(nativePath, (directory ? Attributes | 1u : Read) | (delete ? DeleteAccess : 0) | (write ? 0x40000000u : 0), directory && !delete ? 3u : 1u,
             IntPtr.Zero, 3, 0x00200000 | (directory ? 0x02000000u : 0), IntPtr.Zero);
         if (h.IsInvalid) { h.Dispose(); Fail(); }
         try
@@ -49,6 +49,13 @@ internal static class SafeNativeFile
     {
         if (!GetFileInformationByHandle(handle, out var info)) Fail();
         return info;
+    }
+    internal static void SetModifiedUtc(SafeFileHandle handle, DateTime utc)
+    {
+        var value = utc.ToFileTimeUtc();
+        var time = new System.Runtime.InteropServices.ComTypes.FILETIME
+        { dwLowDateTime = unchecked((int)value), dwHighDateTime = unchecked((int)(value >> 32)) };
+        if (!SetFileTime(handle, IntPtr.Zero, IntPtr.Zero, ref time)) Fail();
     }
     internal static string Fingerprint(SafeFileHandle handle)
     {
@@ -127,4 +134,7 @@ internal static class SafeNativeFile
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetFileInformationByHandle(SafeFileHandle file, int kind, IntPtr data, int size);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetFileTime(SafeFileHandle file, IntPtr creation, IntPtr access, ref System.Runtime.InteropServices.ComTypes.FILETIME modified);
 }

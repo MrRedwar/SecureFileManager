@@ -9,11 +9,20 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<User> Users => Set<User>();
     public DbSet<FileRecord> Files => Set<FileRecord>();
     public DbSet<Operation> Operations => Set<Operation>();
+    public DbSet<ExternalDocument> ExternalDocuments => Set<ExternalDocument>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
         // Stable comparison independent of the server/database default collation.
         const string collation = "Latin1_General_100_CI_AS";
+        var external = model.Entity<ExternalDocument>();
+        external.ToTable("ExternalDocuments", t => t.HasCheckConstraint("CK_ExternalDocuments_Size", "[SizeBytes] >= 0"));
+        external.HasKey(x => x.Id);
+        external.Property(x => x.Path).HasMaxLength(4000).IsRequired();
+        external.Property(x => x.PathKey).HasMaxLength(64).IsUnicode(false).IsRequired();
+        external.HasIndex(x => x.PathKey).IsUnique();
+        external.Property(x => x.Version).HasMaxLength(256).IsRequired();
+        external.Property(x => x.RowVersion).IsRowVersion();
         var users = model.Entity<User>();
         users.ToTable("Users", t =>
         {
@@ -58,6 +67,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         operations.HasKey(x => x.Id);
         operations.Property(x => x.ActorNameSnapshot).HasMaxLength(50);
         operations.Property(x => x.TargetPathSnapshot).HasMaxLength(400);
+        operations.Property(x => x.ExternalPathSnapshot).HasMaxLength(4000);
+        operations.HasOne<ExternalDocument>().WithMany().HasForeignKey(x => x.ExternalDocumentId).OnDelete(DeleteBehavior.NoAction);
         operations.Property(x => x.Details).HasMaxLength(512);
         operations.Property(x => x.OperationType).HasConversion<string>().HasMaxLength(32);
         operations.Property(x => x.Result).HasConversion<string>().HasMaxLength(16);
@@ -97,6 +108,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                     throw new PersistenceValidationException();
             switch (entry.Entity)
             {
+                case ExternalDocument d when d.Id == Guid.Empty || !Core.Security.ExternalPathSyntax.IsValid(d.Path) ||
+                    d.PathKey.Length != 64 || d.Version.Length is < 1 or > 256 || d.SizeBytes < 0:
+                    throw new PersistenceValidationException();
                 case User u when u.Id == Guid.Empty || string.IsNullOrWhiteSpace(u.Username) ||
                     u.Username.Length is < 3 or > 50 || u.Username != u.Username.Trim() ||
                     string.IsNullOrWhiteSpace(u.PasswordHash) || u.FailedLoginCount < 0:
@@ -107,6 +121,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                     f.ModifiedAtUtc < f.CreatedAtUtc || f.IsDeleted != f.DeletedAtUtc.HasValue:
                     throw new PersistenceValidationException();
                 case Operation o when o.Id == Guid.Empty || o.CorrelationId == Guid.Empty ||
+                    (o.FileId is not null && o.ExternalDocumentId is not null) ||
+                    (o.ExternalPathSnapshot is not null && (o.ExternalDocumentId is null || !Core.Security.ExternalPathSyntax.IsValid(o.ExternalPathSnapshot))) ||
                     !Enum.IsDefined(o.OperationType) || !Enum.IsDefined(o.Result) ||
                     (o.TargetPathSnapshot is not null && !MetadataPath.IsValid(o.TargetPathSnapshot)):
                     throw new PersistenceValidationException();

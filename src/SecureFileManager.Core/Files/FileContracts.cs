@@ -57,16 +57,12 @@ public sealed record DriveSnapshot(string Name, string Label, string Type, strin
     public double Percent => Total > 0 ? 100d * Used / Total : 0;
 }
 public interface IDriveService { Task<FileResult<IReadOnlyList<DriveSnapshot>>> GetAsync(CancellationToken ct = default); }
-public interface IFileService
+public interface IFileService : ITextDocumentService
 {
     event EventHandler<FileChangeNotification>? Changed;
     Task WaitForIdleAsync();
     Task<FileResult<IReadOnlyList<FileEntry>>> ListAsync(string directory, CancellationToken ct = default);
     Task<FileResult<bool>> CreateAsync(string directory, string name, bool folder, CancellationToken ct = default);
-    Task<FileResult<TextDocument>> ReadAsync(Guid id, CancellationToken ct = default);
-    Task<FileResult<TextDocument>> ReloadAsync(Guid id, CancellationToken ct = default);
-    Task<FileResult<bool>> SaveAsync(Guid id, string text, string version, CancellationToken ct = default);
-    Task<FileResult<DocumentValidation>> ValidateAsync(Guid id, string text, CancellationToken ct = default);
     Task<FileResult<bool>> DeleteAsync(Guid id, CancellationToken ct = default);
     Task<FileResult<bool>> SynchronizeAsync(string relativePath, CancellationToken ct = default);
     Task<FileResult<bool>> ImportAsync(string directory, ImportSelection source, CancellationToken ct = default);

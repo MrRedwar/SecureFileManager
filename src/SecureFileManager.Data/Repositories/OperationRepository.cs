@@ -17,7 +17,8 @@ public sealed class OperationRepository(IDbContextFactory<AppDbContext> factory)
         if (query.Result is { } result) rows = rows.Where(x => x.Result == result);
         if (query.FromUtc is { } from) rows = rows.Where(x => x.OccurredAtUtc >= from);
         if (query.UntilUtc is { } until) rows = rows.Where(x => x.OccurredAtUtc < until);
-        if (query.Search.Length != 0) rows = rows.Where(x => x.TargetPathSnapshot != null && x.TargetPathSnapshot.Contains(query.Search));
+        if (query.Search.Length != 0) rows = rows.Where(x => x.TargetPathSnapshot != null && x.TargetPathSnapshot.Contains(query.Search) ||
+            x.ExternalPathSnapshot != null && x.ExternalPathSnapshot.Contains(query.Search));
         var ordered = query.Descending ? rows.OrderByDescending(x => x.OccurredAtUtc).ThenByDescending(x => x.Id) :
             rows.OrderBy(x => x.OccurredAtUtc).ThenBy(x => x.Id);
         var page = await ordered.Skip(query.Page * query.PageSize).Take(query.PageSize + 1).ToListAsync(ct);

@@ -18,6 +18,7 @@ public static class DataServiceCollectionExtensions
         services.AddSingleton<Core.Journal.IAuditProbe, Identity.AuditProbe>();
         services.AddSingleton<IIdentityStore, SecureFileManager.Data.Identity.IdentityStore>();
         services.AddSingleton<SecureFileManager.Core.Files.IFileTransactionStore, SecureFileManager.Data.Files.FileTransactionStore>();
+        services.AddSingleton<Core.Files.IExternalDocumentStore, Files.ExternalDocumentStore>();
         services.AddSingleton<IDatabaseConnectionCheck, SecureFileManager.Data.Identity.DatabaseConnectionCheck>();
         return services;
     }

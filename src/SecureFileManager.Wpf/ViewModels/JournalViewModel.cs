@@ -10,7 +10,8 @@ public sealed record AuditListItem(string OccurredAt, string Actor, string Actio
     public string ResultCode => Result switch { "Успех" => "Success", "Отказано" => "Denied", "Ошибка" => "Failed", _ => "Neutral" };
     public static AuditListItem From(Operation o) => new(o.OccurredAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"),
         o.ActorNameSnapshot is { Length: <= 50 } name && !name.Any(char.IsControl) ? name : "—",
-        o.OperationType.ToString(), RelativePathSyntax.IsValid(o.TargetPathSnapshot) ? o.TargetPathSnapshot! : "—",
+        o.OperationType.ToString(), o.ExternalDocumentId is not null && ExternalPathSyntax.IsValid(o.ExternalPathSnapshot) ? o.ExternalPathSnapshot! :
+            RelativePathSyntax.IsValid(o.TargetPathSnapshot) ? o.TargetPathSnapshot! : "—",
         o.Result switch { OperationResult.Success => "Успех", OperationResult.Denied => "Отказано", _ => "Ошибка" }, Describe(o));
     private static string Describe(Operation o) => o.Details switch
     {
@@ -22,6 +23,10 @@ public sealed record AuditListItem(string OccurredAt, string Actor, string Actio
         "STORAGE_DIAGNOSED" => "Неразрушающая диагностика завершена.",
         "STORAGE_DIAGNOSIS_PARTIAL" => "Диагностика неполная; требуется проверка.",
         "COMPUTER_DIRECTORY_LISTED" => "Просмотр общего каталога компьютера. Содержимое файлов не читалось.",
+        "EXTERNAL_READ" => "Внешний документ открыт в редакторе.",
+        "EXTERNAL_SAVED" => "Внешний документ сохранён, метаданные и аудит подтверждены.",
+        "EXTERNAL_VALIDATED" => "Выполнена проверка внешнего JSON/XML.",
+        "EXTERNAL_RECOVERED" => "Проверено восстановление внешнего сохранения.",
         _ => o.Result == OperationResult.Denied ? "Действие отклонено политикой доступа или безопасности." :
             o.Result == OperationResult.Failed ? "Действие не завершено. Содержимое документа и системные пути скрыты." :
             "Действие выполнено; обязательная запись сохранена."

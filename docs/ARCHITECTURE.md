@@ -1,5 +1,13 @@
 # Архитектура Secure File Manager — итоговая C#-версия
 
+Дополнение11.02 от07.11.2026: общий редактор получает ITextDocumentService (личный
+IFileService наследует порт); ExternalDocumentService и WindowsExternalDocumentStorage
+обслуживают внешние TXT/JSON/XML. ExternalDocumentStore в Data координирует общие
+метаданные ExternalDocuments и Operations.ExternalDocumentId/ExternalPathSnapshot.
+Третья добавочная миграция — 20261107101211_AddExternalDocuments. Изоляция личных
+Files/Users сохранена. Схема и in-place backup/recovery-протокол подробно приведены
+в [EXTERNAL_EDITOR](EXTERNAL_EDITOR.md); старые диаграммы ниже — снимок MVP.
+
 Дополнение07.11.2026: реализован общий read-only браузер внешних локальных папок —
 IComputerBrowseService/ComputerBrowseService в Core, WindowsComputerDirectoryReader
 и ComputerBrowserView/VM в Wpf, вкладка раздела «Диски». Видимость общая по Windows ACL,
