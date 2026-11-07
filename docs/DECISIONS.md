@@ -1,5 +1,40 @@
 # Решения и открытые вопросы
 
+## 2026-11-07 — Этап 12, только аудит и архитектурные предложения
+
+Пользователь явно поручил полный аудит HEAD `9515151` и план полноценного Ubuntu Web
+file manager; запретил реализацию, изменения бизнес-логики/БД/данных, Docker/миграции
+и самостоятельный commit. Эти границы сохранены. Семь документов находятся в
+[cross-platform](cross-platform/DEVELOPMENT_ROADMAP.md); текущий код имеет personal
+ownership и shared external files по Windows token, без app grants. Старый AGENTS §5.1
+и исторические A-only абзацы расходятся с разрешённым расширением11; конфликт отмечен
+в аудите, исходные правила/код не переписывались. YAML-редактора и WPF export нет.
+
+Предложения, **не утверждённые настройки и не реализованные компоненты**:
+
+- **P12-01:** Blazor Web App Interactive Server; authenticated HTTP streaming для
+  upload/download, scoped actor/circuit state вместо desktop singleton UserSession.
+- **P12-02:** первое развёртывание — один web instance, MySQL и explicit migration job;
+  сохранить существующие Core orchestration/validators/ZIP/KDF/audit, выделить Linux adapters.
+- **P12-03:** несколько trusted host roots через explicit bind mounts + personal/state/
+  keys volumes; deny-default LocationGrant на каждом методе, OS UID/ACL как верхний предел.
+  Не давать `/` rw, privileged, docker.sock или mount API web-процессу.
+- **P12-04:** отдельная новая MySQL БД без переноса рабочей SQL Server; раздельные provider
+  migrations. Предпочтительный кандидат после будущего spike: .NET10/EF10 + stable Oracle
+  MySql.EntityFrameworkCore10.0.12 (dependencies проверены по NuGet). Pomelo9 совместим
+  с EF9, не считать его EF10 provider. .NET9 EOL10.11.2026; сейчас установлен только SDK9.
+- **P12-05:** external trash остаётся same-FS rename с receipts, без purge; Linux external
+  case-sensitive identity и conservative ZIP names требуют утверждения; host-agent не baseline.
+- **P12-06:** GitHub Actions + act — самый простой кандидат для текущего GitHub remote,
+  при допустимости по методичке; native GitLab Runner — альтернатива при требовании
+  coordinator/trigger UI. SAST hard gate High/Critical и scanner errors обязателен.
+
+Полного текста задания№2 в доступном дереве нет: формальное соответствие всем его
+пунктам не подтверждено. Открыты Ubuntu/kernel/VM resources, roots/UID/GID/grants,
+HTTP localhost vs HTTPS, case/Unicode/mtime policy, provider/license acceptance и CI
+trigger. Следующий возможный шаг только по отдельному разрешению — WP01. Ветка,
+проекты, пакеты, службы и CI YAML сейчас не создавались.
+
 ## 2026-11-07 — 11.04, обратимая корзина и внешние ZIP
 
 Пользователь проверил11.03 («я протестировал и вроде норм») и поручил следующий пункт.

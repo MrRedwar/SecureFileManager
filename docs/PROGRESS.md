@@ -1,5 +1,60 @@
 # Журнал фактического прогресса
 
+## 2026-11-07 — Этап 12, аудит и план Ubuntu Web (только документы)
+
+Исходный HEAD `9515151` (11.4), `git status --short` пустой. Изучены требования,
+решения/прогресс/архитектура и дополнения11.01–11.04, четыре csproj/solution,
+Core/Data/Windows adapters/15 XAML Views и VM, миграции, исходные тесты и последние
+коммиты. Открыт design/egyptian-ui-concept.png. Восстановлены personal vs shared
+external режимы,реальные ограничения copy/move/trash/ZIP/editor/import, отсутствие
+YAML и WPF export,расхождения исторических A-only описаний и current code.
+
+Созданы только Markdown-документы:
+
+- cross-platform/CURRENT_FUNCTIONALITY_AUDIT.md
+- cross-platform/CROSS_PLATFORM_ARCHITECTURE.md
+- cross-platform/WINDOWS_LINUX_PARITY.md
+- cross-platform/LINUX_FILESYSTEM_ACCESS.md
+- cross-platform/DATABASE_PROVIDER_PLAN.md
+- cross-platform/DEVELOPMENT_ROADMAP.md
+- cross-platform/CI_CD_REQUIREMENTS.md
+
+Также документационно обновлены TASKS/DECISIONS/PROGRESS,старые статусы ручных проверок
+не закрывались. План содержит reuse классификацию/15-view web mapping,multi-root
+grants/UID/ACL/native Linux IO,MySQL mapping/migrations/concurrency/UTC,web security/
+transfer semantics,Docker topology и CI gates,12 отдельных WP с приёмкой/рисками.
+
+Read-only команды и результаты:
+
+- `git status --short`, `git log -15 --oneline`, `git show --stat --oneline HEAD`:
+  baseline/последние расширения подтверждены;код не менялся.
+- `rg --files`, `rg -n` и `Get-Content`: каталог исходников/документов/тестов;
+  repository PDF задания№2 не найден;функции не выводились из одного ТЗ.
+- `dotnet --info`:Windows10.0.19045 x64,SDK9.0.200/MSBuild17.13.8;только SDK9.
+- `vswhere -latest -property installationVersion`:17.13.35818.85.
+- `Get-Service 'MSSQL*'`:MSSQL$SQLEXPRESS Running,не новая проверка SQL connectivity.
+- Read-only XML чтение сохранённого
+  `artifacts/external-final-verified-20261107/stage08.trx`:194 total/executed/passed,
+  0 failed/notExecuted. Это исторический прогон,не новый test run этапа12.
+- Проверены официальные Docker/EF/Blazor/MySQL/NuGet/act/GitLab/SAST источники;
+  ссылки и дата в новых документах. Oracle10.0.12 stable имеет net10 dependency group
+  EF/Relational>=10.0.12/MySql.Data>=26.10.0;Pomelo9 требует EF9.
+
+Сборка/restore/test/GUI/SQL queries/миграции/контейнеры не запускались: пользователь
+разрешил только документы,а SqlDatabaseFixture вызывает test migrations/DB cleanup.
+Новая Windows/Ubuntu readiness не заявляется. Физический USB/DPI/keyboard/power-loss/
+clean-install/native11.04 не проверены. Рабочие SQL/Storage,User.Id/passwords/файлы,
+бизнес-логика,TFM/packages/миграции не изменены;ветка/commit не создавались.
+
+Финальная статическая верификация: семь новых файлов, 1646 строк; в parity96 строк
+функций/ограничений (без двух строк заголовка). PowerShell regex-проверка локальных
+Markdown-ссылок через Test-Path — PASS; парность fenced blocks во всех семи — PASS.
+`git diff --check` — PASS (только уведомления политики LF→CRLF); новые файлы также
+проверены на trailing whitespace. Граница изменений — только десять Markdown-файлов
+(семь новых + TASKS/DECISIONS/PROGRESS), исходники/тесты/конфигурация/миграции неизменны.
+Статус: аудит и план подготовлены. Формальные/технические вопросы открыты в roadmap;
+WP01–WP12 не начаты. Следующий шаг — отдельное разрешение на WP01,не реализация Web.
+
 ## 2026-11-07 — 11.04, обратимая корзина приложения и внешние ZIP
 
 Пользователь подтвердил обычную ручную проверку11.03 («я протестировал и вроде норм»)
